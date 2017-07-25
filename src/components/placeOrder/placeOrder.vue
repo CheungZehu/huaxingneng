@@ -33,14 +33,15 @@
           <checker-item v-for="n in metering.options" v-model="n.value">{{ n.key }}</checker-item>
         </checker>
       </li>
-      <!--<li v-show="price.value">-->
       <li>
         <span class="order_title">{{price.title}}</span>
-        <span v-if="price.value">￥{{price.value}}</span>
-        <div v-else >
+        <span v-if="!priceValue">￥{{price.value}}</span>
+        <div v-if="priceValue" class="box">
           <span class="pricebox"></span>
-          <input v-model="price.value1" class="pricebox" placeholder="请输入单价">
+          <input v-model="price.value" class="pricebox" placeholder="请输入单价" type="number">
+          <button class="price_btn" @click="priceBtn">确定</button>
         </div>
+
       </li>
       <li>
         <span class="order_title">{{number.title}}</span>
@@ -110,6 +111,1183 @@
     <loading v-model="show" :text="showtext"></loading>
   </div>
 </template>
+
+
+<script>
+import { Checker , CheckerItem ,Selector, Group ,ToastPlugin , Loading} from 'vux'
+import axios from 'axios'
+import qs from 'qs'
+import selectbox from './selectbox.vue'
+import storebox from './storebox.vue'
+
+export default {
+components:{ Checker , CheckerItem ,Selector ,Group ,ToastPlugin ,Loading ,storebox ,selectbox},
+methods:{
+  submit(){
+    let data_obj={
+      appSer: this.list.appSer,
+      company:this.merchant.custname,//商户名
+      cardNo:!this.merchant.custNo ? this.list.cardNo : this.merchant.custNo,//商户代码  
+      deptNo:this.merchant.deptno,//门店编号
+      deptNoName:this.merchant.deptNoName,//门店名
+      // deptNoName:this.merchant.deptNoName,//门店名
+      // botttype:this.size.value,//规格
+      bottType: this.size.spectype,
+      // cType:this.metering.value,//计量单位
+      unit:this.metering.value,//计量单位
+      unitPrice:this.price.value?this.price.value:this.price.value1,//单价
+      bottleNum:this.number.value,//瓶数
+      // sumWeight:parseInt(this.weight.value),//重量
+      sumWeight:this.weight.value,//重量
+      appDate: this.getDate(this.time.day),//配送日期
+      time:this.time.hour,//时间段
+      memo:this.remark.value,//备注
+      // custType:this.merchant.custtype.substr(0,2),//客户类型
+      custType:this.merchant.custtype,//客户类型
+      name:this.merchantInfo.contact.value,//联系人
+      // telePhone:this.merchant.mobiletel,//手机号
+      telePhone:this.merchantInfo.phoneNumber.value,//手机号
+      address:this.address.value,//地址
+      addrser:this.address.addrser,
+      // selltype:this.merchant.selltype.substr(0,2),//销售类型
+      selltype:this.merchant.selltype,//销售类型
+      // selltype:this.list.selltype,
+      totalprice:this.tatol_price //总价
+    }
+
+    if (!data_obj.custNo) {
+      data_obj.custNo = this.list.custNo
+      // console.log('还没有？' + data_obj.custNo)
+    } 
+    // 校验数据
+    let self = this;
+    if(!data_obj.company){
+      self.$vux.toast.show({
+        text:'请选择商户',
+        type:'text'
+      })
+      return
+    }else if(!data_obj.bottType){
+      self.$vux.toast.show({
+        text:'请选择规格',
+        type:'text'
+      })
+      return
+    }else if (!data_obj.bottleNum) {
+      self.$vux.toast.show({
+        text:'请选择瓶数',
+        type:'text'
+      })
+      return
+    }else if(!data_obj.time){
+      self.$vux.toast.show({
+        text:'请选择送气的时段',
+        type:'text'
+      })
+      return
+    }else if(!data_obj.address){
+      self.$vux.toast.show({
+        text:'请选择送气的地址',
+        type:'text'
+      })
+      return
+    }
+    
+    // this.list.cardNo : this.merchant.custNo
+    console.log('list' + this.list.cardNo)
+    console.log('merchant' + this.merchant.custNo)
+    localStorage.setItem('order_list',JSON.stringify(data_obj));
+    console.log('placeOrder提交订单')
+    console.log(data_obj)
+    this.$router.push('sureOrder');
+  },
+
+  isShow() {
+    this.store.show = !this.store.show
+  },
+  //根据商户获取门店
+  // searchStore(){
+  //   console.log('==========================')
+  //   this.getCustData();
+  //   if(this.merchant){
+  //     //如果选择的商户 有 department，就直接赋值给门店
+  //     this.store.value = this.merchant.deptname;
+  //     // console.log(this.store.value)
+  //     this.store.options = [{department:this.merchant.department}]
+  //   }else{
+      
+  //   }
+    
+  // },
+  priceBtn () {
+    this.priceValue = false
+  },
+  
+  //获取单价
+  getPrice(number){
+    let self = this;
+    self.show = true;//显示loading
+    self.showtext = '正在获取单价...';
+    let _data = {
+      //组合数据
+      unit:this.metering.value,//计量单位（1：公斤，0：瓶）
+      cardNo:!this.merchant.custNo ? this.list.cardNo : this.merchant.custNo,//客户号
+      // custNo:this.merchant.custcode,//客户号
+      custBottype:this.size.value,//规格
+      dayNum: number,
+      floor: this.address.floor
+    }
+    let isTrue = false
+    if (_data.unit && _data.cardNo && _data.custBottype && _data.dayNum && _data.floor) {
+      isTrue = true
+    }
+    console.log('是否' + isTrue)
+    // if (isTrue) {
+    _data = qs.stringify(_data)
+    // console.log(_data)
+    axios.post(''+this.host+'/custOrder/getKiloOrVasePrice',_data,{
+      headers:{
+          'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    }).then( data => {
+      //单价
+      self.show = false;
+      console.log('调用单价')
+      console.log(data.data)
+      if(data.data.error == '0'){
+        this.price.value = data.data.errMsg;
+        this.priceValue = false
+      }else if (data.data.error == '4004') {
+        this.priceValue = true
+          self.price.value = '';
+          self.$vux.toast.show({
+             text: '获取单价为空，请手动输入',
+             type:'text'
+           })   
+      }
+    })
+    // }
+  },
+  //获取总净重
+  getToatalWeight(){
+    let self = this;
+    self.show = true;
+    self.showtext = '正在获取总净重...'
+    let _data = qs.stringify({
+      ctype:self.size.value,
+      vaseNum:self.number.value
+    });
+
+    axios.post(''+this.host+'/custOrder/getAllWeigth',_data,{
+        headers:{
+          'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    }).then( data => {
+      self.show = false;
+      if(data.data.error == '0'){
+        self.weight.value = data.data.errMsg
+      } else {
+        self.$vux.toast.show({
+          text:'获取总净重失败，请稍后重试',
+          type:'text'
+        })
+        this.metering.value = ''
+      }
+    })
+  },
+  //获取总价
+  getTotalPrice(number){
+    let self = this;
+    let _data;
+
+    _data = qs.stringify({
+      unit:self.metering.value,//计量单位
+      // cardNo:self.merchant.custNo,//用户号
+      cardNo:!self.merchant.custNo ? self.list.cardNo : self.merchant.custNo,//用户号
+      // custNo:self.merchant.custcode,//用户号
+      custBottype:self.size.value,//规格
+      vaseNum:self.number.value,//瓶数
+      price:self.price.value, // 单价
+      dayNum: number,
+      floor: this.address.floor
+    })
+
+    
+    axios.post(''+this.host+'/custOrder/getPrice',_data,{
+       headers:{
+          'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    }).then(data => {
+      console.log('zongjia')
+      console.log(data.data)
+      if(data.data.error == '0'&& data.data.errMsg){
+        this.tatol_price = data.data.errMsg
+        // 将总价设置成本地存储
+        // this.tatol_price = self.metering.value + self.number.value
+        localStorage.setItem('total',data.data.errMsg)
+
+        return data.data.errMsg
+      }else if(data.data.error == '4004'){
+        this.tatol_price = '';
+        self.$vux.toast.show({
+          text:'获取总价出现问题，请联系管理员',
+          type:'text'
+        })
+      } else if (data.data.error == '-1') {
+        console.log('获取失败')
+      }
+    })
+  },
+//日期转换
+ getDate(str){
+    if(str == '今天'){
+      let  date_ = new Date();
+      return date_.toLocaleDateString()
+    }else if(str == '明天'){
+      let date__ = new Date().setDate(new Date().getDate() +1 )
+      return new Date(date__).toLocaleDateString()
+    }else if( str == '后天'){
+      let date___ = new Date().setDate(new Date().getDate() +2 )
+      return new Date(date___).toLocaleDateString()
+    }
+  },
+//禁止此刻之前的时间段选择
+  hoursPick(){
+   // this.time.hour = null;
+    let hour = new Date().getHours();
+    // console.log(hour,this.time.hours)
+    if( this.time.day == '今天'){
+      for(var i = 0; i < this.time.hours.length; i ++){
+      if(parseInt( this.time.hours[i].value ) < hour){
+        // console.log(parseInt( this.time.hours[i].value ))
+        this.time.hours[i].disabled = true;
+      }
+    }
+    }else{
+      for(var i = 0; i < this.time.hours.length ; i ++){
+      if(parseInt( this.time.hours[i].value ) < hour){
+        // console.log(parseInt( this.time.hours[i].value ))
+        this.time.hours[i].disabled = false;
+      }
+    }
+  }
+ },
+
+ // 将数据放入
+ search(val){
+   this.merchant = val;
+   this.merchant.custtype = this.merchant.custtype.replace(/\s+/g,"")
+   this.merchant.custNo = this.merchant.custcode
+   console.log('客户号')
+   console.log(this.merchant)
+ },
+ //如果没有门店，显示搜索框
+  showSearchStore(){
+    this.store.show = true;
+    return ''
+ },
+ // 门店搜索结果
+ searchStore(val){
+  this.merchant.deptnoname = val.deptnoname;
+  this.store.show = false;
+ }
+},
+created(){
+
+  //获取规格
+  this.show = true;
+  axios.post(''+this.host+'/custOrder/getStandard').then(data =>{
+    this.show = false;
+    if(data.data.error == '0'){
+      this.size.options = data.data.errMsg;
+      this.size.options.map(item => {
+        if (item.ctype === this.list.bottType) {
+          this.list.bottType = item
+        }
+      })
+      if (this.list.bottType) {
+        let bottType = this.list.bottType
+        if (bottType.indexOf(" ") >= 0) {
+          this.size.options.map(item => {
+            if (bottType.replace(/\s+/g,"") === item.spectype) {
+              this.size.value = item.ctype
+            }
+          })
+        } else {
+          this.size.options.map(item => {
+            if (bottType === item.spectype) {
+              this.size.value = item.ctype
+            }
+          })
+        }
+      }
+    }else if(data.data.error == '-1'){
+      this.$vux.toast.show({
+        text:'获取数据失败，请稍后重试',
+        type:'text'
+      })
+    }
+  })
+
+  // 时间
+  let nowDate = new Date()
+  let hour = nowDate.getHours();
+  if (hour > 16) {
+    this.time.day = '明天'
+    this.time.days[0].disabled = true; 
+  } else {
+    this.time.days[0].disabled = false; 
+  }
+  
+  if (localStorage.getItem('order_list')) {
+    this.list = JSON.parse(localStorage.getItem('order_list'))
+    console.log('list')
+    console.log(this.list)
+    this.merchant.deptNoName = this.list.deptNoName
+    this.merchant.custname = this.list.company
+
+    this.merchant.deptno = this.list.deptNo
+    
+    this.price.value = this.unitPrice
+
+    if (this.list.unit != '') {
+      this.metering.value = this.list.unit
+    }
+    
+    if (this.list.sumWeight !== 0) {
+      this.weight.value = this.list.sumWeight
+    }
+
+    this.number.value = this.list.bottleNum
+
+    let dates = this.list.appDate
+    if (dates.indexOf('/') > 0) {
+      dates = dates.split('/')
+    } else {
+      let str = dates.split(' ')[0]
+      dates = str.split('-')
+    }
+
+    let nowDate = new Date()
+    let hour = nowDate.getHours();
+    let day = parseInt(dates[2]) - nowDate.getDate()
+    
+    if (day == 2) {
+      this.time.day = '后天'
+    } else if (day == 1) {
+      this.time.day = '明天'
+    } else if (day == 0 && hour > 16) {
+      this.time.day = '明天'
+    } else {
+      this.time.day = '今天'
+      console.log('kankan')
+    }
+
+
+    this.remark.value = this.list.memo
+
+    let custType = this.list.custType
+    // this.merchantInfo.customerKind.value = this.list.custType == '01' ? '工商业客户' : '工业客户'
+    this.merchant.custtype = this.list.custType
+
+    console.log(this.list.custType)
+    if (typeof(this.list.custType) === 'number') {
+      switch (this.list.custType) {
+        case 1:
+          this.merchantInfo.customerKind.value = '民用';
+          break;
+        case 2:
+          this.merchantInfo.customerKind.value = '商用';
+          break;
+        case 3:
+          this.merchantInfo.customerKind.value = '工业';
+          break;
+        case 4:
+          this.merchantInfo.customerKind.value = '批发';
+          break;
+      } 
+    } else {
+      switch (this.list.custType) {
+        case '1':
+          this.merchantInfo.customerKind.value = '民用';
+          break;
+        case '2':
+          this.merchantInfo.customerKind.value = '商用';
+          break;
+        case '3':
+          this.merchantInfo.customerKind.value = '工业';
+          break;
+        case '4':
+          this.merchantInfo.customerKind.value = '批发';
+          break;
+      } 
+    }
+
+    switch (this.list.selltype) {
+      case '01':
+        this.merchant.selltype = '01'
+        this.merchantInfo.saleKind.value = '结算客户'
+        break;
+      case '02':
+        this.merchant.selltype = '02'
+        this.merchantInfo.saleKind.value = '月票客户'
+        break;
+      case '03':
+        this.merchant.selltype = '03'
+        this.merchantInfo.saleKind.value = '现金客户'
+        break;
+      case '04':
+        this.merchant.selltype = '04'
+        this.merchantInfo.saleKind.value = '其他'
+        break;
+      default:
+        this.merchantInfo.saleKind.value = ''
+    }
+    this.merchantInfo.contact.value = this.list.name
+    this.merchantInfo.phoneNumber.value = this.list.telePhone
+
+    // 地址
+    console.log('号')
+    console.log(!this.list.cardNo ? this.list.custNo : this.list.cardNo)
+    axios.post(this.host + '/custOrder/getAddress',qs.stringify({
+        custCode:!this.list.cardNo ? this.list.custNo : this.list.cardNo
+      }),{
+        headers:{
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }).then( data => {
+        if(data.data.error == '0'){
+          let address = JSON.parse(data.data.errMsg);
+          console.log(address)
+          address.map((item, key) => {
+            if (item.address == '') {
+              address.splice(key, 1)
+            }
+          })
+          this.address.options = address
+          let index = 0
+          address.map((item, key) => {
+            if (item.address == this.list.address) {
+              index = key
+            }
+          })
+          console.log(address[index].address)
+          this.address.value = this.address.options[index].address;
+          this.address.floor = this.address.options[index].floor
+          this.address.addrser = this.address.options[index].addrser
+          console.log(this.address.floor)
+          console.log(this.address.addrser)
+        }
+      })
+    
+    document.body.scrollTop = 0
+  }
+
+  
+  //禁止此刻之前的时间段选择
+  setTimeout(() => {
+    this.hoursPick();
+  }, 0)
+  // this.hoursPick();
+
+
+  if (this.list.time) {
+    let time = this.list.time.split(':')[0]
+    if (time < hour) {
+      if (this.time.day == '今天') {
+        for(var i = 0; i < this.time.hours.length; i++){
+          if (parseInt(this.time.hours[i].value) == hour) {
+            this.time.hour = this.time.hours[i].key
+            // console.log(parseInt(this.time.hours[i].value))
+            return false
+          }
+        }
+      } else {
+        this.time.hour = this.list.time
+      }   
+    } else {
+      this.time.hour = this.list.time
+    }
+  } else {
+    if (this.time.day == '今天') {
+      if (hour < 16) {
+        for (var i = 0; i < this.time.hours.length; i++) {
+          if (parseInt(this.time.hours[i].value) == hour) {
+            this.time.hour = this.time.hours[i].key
+            // console.log(parseInt(this.time.hours[i].value))
+            return false
+          }
+        }
+      } else {
+        this.time.day = '明天'
+        this.time.hour = this.time.hours[0].key
+      }
+    }
+  }
+  
+  console.log(this.time.hour)
+
+},
+watch:{
+  merchant:{
+    handler:function(){
+      // console.log("获取工商客户资料")
+      // console.log(this.merchant,'获取工商客户资料')
+      let self = this;
+      //客户资料
+      self.merchantInfo.contact.value = self.merchant.linkman;
+      //客户性质
+      // switch (this.merchant.custtype.substr(0,2)) {
+      switch (this.merchant.custtype) {
+        case '1':
+          self.merchantInfo.customerKind.value = '民用';
+          break;
+        case '2':
+          self.merchantInfo.customerKind.value = '商用';
+          break;
+        case '3':
+          self.merchantInfo.customerKind.value = '工业';
+          break;
+        case '4':
+          self.merchantInfo.customerKind.value = '批发';
+          break;
+      } 
+
+      this.merchantInfo.phoneNumber.value = this.merchant.mobiletel;
+      //销售类型
+      let selltype = this.merchant.selltype.toString()
+      if (selltype.indexOf(" ") >= 0) {
+        this.merchant.selltype = selltype.replace(/\s+/g,"")
+      } else {
+        this.merchant.selltype
+      }
+      switch (this.merchant.selltype) {
+        case '01':
+          self.merchantInfo.saleKind.value = '结算客户'
+          break;
+        case '02':
+          self.merchantInfo.saleKind.value = '月票客户'
+          break;
+        case '03':
+          self.merchantInfo.saleKind.value = '现金客户'
+          break;
+        case '04':
+          self.merchantInfo.saleKind.value = '其他'
+          break;
+      }
+
+      //获取地址
+      axios.post(self.host + '/custOrder/getAddress',qs.stringify({
+        custCode:self.merchant.custNo
+      }),{
+        headers:{
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }).then( data => {
+        if(data.data.error == '0'){
+            let address = JSON.parse(data.data.errMsg);
+            console.log('搜索出来的')
+            console.log(address)
+            address.map((item, key) => {
+              if (item.address == '') {
+                address.splice(key, 1)
+              }
+            })
+            this.address.options = address
+            this.address.value = this.address.options[0].address;
+            this.address.floor = this.address.options[0].floor
+            this.address.addrser = this.address.options[0].addrser
+            console.log(this.address.floor)
+            console.log(this.address.addrser)
+        }
+      })
+
+      if(this.size.value && this.merchant && this.metering){
+          if (this.time.day == '今天') {
+            console.log('资料')
+            this.getPrice(0)
+          } else if (this.time.day == '明天') {
+            console.log('资料')
+            this.getPrice(-1)
+          } else {
+            console.log('资料')
+            this.getPrice(-2)
+          }
+      }
+      this.store.show = false;
+      //是否有web_code，有默认公斤，没有默认瓶
+      if(this.merchant.web_code!=''){
+        self.metering.value = '1'
+      }else{
+        self.metering.value = '0'        
+      }
+      this.size.value = 'YSP118';// 更改默认的规格
+
+      this.price.value = '';
+      this.price.value1 = '';
+      this.number.value = '';
+      this.weight.value = '';
+        // }
+    },
+    deep:true    
+  },
+  metering:{
+    handler(){
+      if(this.size.value && this.merchant){
+          if (this.time.day == '今天') {
+            console.log('计量单位')
+            if (this.metering.value === '1' && this.number.value) {
+              this.getToatalWeight()
+            } else {
+              this.getPrice(0)
+            }
+            // this.getPrice(0)
+            if (this.price.value) {
+              this.getTotalPrice(0)
+            }
+            // this.getTotalPrice(0)
+            // let nowDate = new Date()
+            // let hour = nowDate.getHours();
+            // let ohour = this.time.hour.split(':')[0]
+            // if (hour > ohour) {
+            //   this.time.hour = ''
+            // }
+          } else if (this.time.day == '明天') {
+            console.log('计量单位')
+            if (this.metering.value === '1' && this.number.value) {
+              this.getToatalWeight()
+            } else {
+              this.getPrice(-1)
+            }
+            // this.getPrice(-1)
+            if (this.price.value) {
+              this.getTotalPrice(-1)
+            }
+            // this.getTotalPrice(-1)
+          } else {
+            console.log('计量单位')
+            if (this.metering.value === '1' && this.number.value) {
+              this.getToatalWeight()
+            } else {
+              this.getPrice(-2)
+            }
+            // this.getPrice(-2)
+            if (this.price.value) {
+              this.getTotalPrice(-2)
+            }
+            // this.getTotalPrice(-2)
+          }
+        // }
+          
+      }
+    },
+    deep:true
+  },
+
+  'price.value' (val) {
+    console.log(val)
+
+    if (val !== '') {
+      // if (this.metering.value && this.merchant && this.size.value) {
+      if (this.metering.value && this.merchant && this.size.value && this.address.value) {
+        // setTimeout(() => {
+          if (this.time.day == '今天') {
+            console.log('单价')
+            // this.getPrice(0)
+            this.getTotalPrice(0)
+            // let nowDate = new Date()
+            // let hour = nowDate.getHours();
+            // let ohour = this.time.hour.split(':')[0]
+            // if (hour > ohour) {
+            //   this.time.hour = ''
+            // }
+          } else if (this.time.day == '明天') {
+            console.log('单价')
+            // this.getPrice(-1)
+            this.getTotalPrice(-1)
+          } else {
+            console.log('单价')
+            // this.getPrice(-2)
+            this.getTotalPrice(-2)
+          }
+        // }, 300)
+          
+      // }
+      }  
+    } else {
+      this.tatol_price = ''
+    }
+  },
+  size:{
+    handler(val){
+      console.log(val)
+      this.size.options.map(item => {
+        if (item.ctype === val.value) {
+          this.size.spectype = item.spectype
+        }
+      })
+      console.log(this.size.spectype)
+      // if(this.metering.value && this.merchant && this.size.value){
+      if(this.metering.value && this.merchant && this.size.value && this.address.value){
+        // if (this.list) {
+          if (this.time.day == '今天') {
+            console.log('规格')
+
+            // if (this.metering.value === '1') {
+            //   if (!this.price.value) {
+            //     this.getPrice(0)
+            //   }
+            //   if (this.number.value) {
+            //     this.getToatalWeight()
+            //   }
+            // } else {
+            //   this.getPrice(0)
+            // }
+
+
+            if (this.metering.value === '1' && this.number.value) {
+              this.getToatalWeight()
+              // this.getPrice(0)
+            } else if (this.metering.value === '0') {
+              this.getPrice(0)
+            }
+            // this.getPrice(0)
+            if (this.price.value) {
+              this.getTotalPrice(0)
+            }
+            // this.getTotalPrice(0)
+            // let nowDate = new Date()
+            // let hour = nowDate.getHours();
+            // let ohour = this.time.hour.split(':')[0]
+            // if (hour > ohour) {
+            //   this.time.hour = ''
+            // }
+          } else if (this.time.day == '明天') {
+            console.log('规格')
+            if (this.metering.value === '1' && this.number.value) {
+              this.getToatalWeight()
+              // this.getPrice(0)
+            } else if (this.metering.value === '0') {
+              this.getPrice(-1)
+            }
+            if (this.price.value) {
+              this.getTotalPrice(-1)
+            }
+            // this.getTotalPrice(-1)
+          } else {
+            console.log('规格')
+            if (this.metering.value === '1' && this.number.value) {
+              this.getToatalWeight()
+            } else if (this.metering.value === '0') {
+              this.getPrice(-2)
+            }
+            if (this.price.value) {
+              this.getTotalPrice(-2)
+            }
+            // this.getTotalPrice(-2)
+          } 
+        // }   
+      }     
+    },
+    deep:true
+  },
+  number:{
+    handler(a,b){
+      // 获取总净重
+      // console.log(a,b)
+      if( this.size.value && this.number.value && this.metering.value == '1'){
+        this.getToatalWeight()
+      }
+      if(this.size.value && this.metering.value && this.merchant && this.number.value && this.price.value){
+        // this.getTotalPrice();
+        if (this.time.day == '今天') {
+          console.log('数量')
+           // if(this.metering.value == '1'){
+           //    this.getToatalWeight()
+           //  }
+
+          this.getTotalPrice(0)
+          // let nowDate = new Date()
+          // let hour = nowDate.getHours();
+          // let ohour = this.time.hour.split(':')[0]
+          // if (hour > ohour) {
+          //   this.time.hour = ''
+          // }
+        } else if (this.time.day == '明天') {
+          console.log('数量')
+          this.getTotalPrice(-1)
+        } else {
+          console.log('数量')
+          this.getTotalPrice(-2)
+        }
+      }
+    },
+    deep:true
+  },
+  // address: {
+  //   handler(val) {
+  //     console.log(val)
+  //     if(this.metering.value && this.merchant && this.size.value){
+  //       // if (this.list) {
+  //       if (this.time.day == '今天') {
+  //         console.log('地址')
+  //         this.getPrice(0)
+  //         this.getTotalPrice(0)
+  //         let nowDate = new Date()
+  //         let hour = nowDate.getHours();
+  //         let ohour = this.time.hour.split(':')[0]
+  //         if (hour > ohour) {
+  //           this.time.hour = ''
+  //         }
+  //       } else if (this.time.day == '明天') {
+  //         console.log('地址')
+  //         this.getPrice(-1)
+  //         this.getTotalPrice(-1)
+  //       } else {
+  //         console.log('地址')
+  //         this.getPrice(-2)
+  //         this.getTotalPrice(-2)
+  //       }    
+  //     }
+  //   }, 
+  //   deep: true
+  // },
+  'address.value' (val) {
+    console.log(val)
+    console.log(this.address.options)
+    this.address.options.map(item => {
+      if (item.address === val) {
+        this.address.addrser = item.addrser
+      }
+    })
+    if (val) {
+      if(this.metering.value && this.merchant && this.size.value){
+        // if (this.list) {
+        if (this.time.day == '今天') {
+          console.log('地址')
+          // if ()
+          this.getPrice(0)
+          if (this.price.value) {
+            this.getTotalPrice(0)
+          }
+          // this.getTotalPrice(0)
+          // let nowDate = new Date()
+          // let hour = nowDate.getHours();
+          // let ohour = this.time.hour.split(':')[0]
+          // if (hour > ohour) {
+          //   this.time.hour = ''
+          // }
+        } else if (this.time.day == '明天') {
+          console.log('地址')
+          this.getPrice(-1)
+          if (this.price.value) {
+            this.getTotalPrice(-1)
+          }
+          // this.getTotalPrice(-1)
+        } else {
+          console.log('地址')
+          this.getPrice(-2)
+          if (this.price.value) {
+            this.getTotalPrice(-2)
+          }
+          // this.getTotalPrice(-2)
+        }    
+      }
+    }
+  },
+  'time.day' () {
+    // if (this.merchant.custname) {
+        if (this.time.day == '今天') {
+          if (this.metering.value && this.size.value && this.merchant.custname) {
+            console.log('时间')
+            this.getPrice(0)
+            if (this.price.value) {
+              // this.getPrice(0)
+              this.getTotalPrice(0)
+            }
+            // this.getTotalPrice(0)
+          }
+          
+          let nowDate = new Date()
+          let hour = nowDate.getHours();
+          let ohour = this.time.hour.split(':')[0]
+          if (hour > ohour) {
+            // this.time.hour = ''
+            if (hour < 16) {
+              for (var i = 0; i < this.time.hours.length; i++) {
+                if (parseInt(this.time.hours[i].value) == hour) {
+                  this.time.hour = this.time.hours[i].key
+                  // console.log(parseInt(this.time.hours[i].value))
+                  return false
+                }
+              }
+            }
+            //  else {
+            //   this.$vux.toast.show({
+            //     text:'今天送气时间已过，请重新选择',
+            //     type:'text'
+            //   })
+            //   // return false
+            //   this.time.day = '明天'
+            //   this.time.hour = this.time.hours[0].key
+            // }
+          }
+        } else if (this.time.day == '明天') {
+          // console.log('明天')
+          if (this.metering.value && this.size.value && this.merchant.custname) {
+            console.log('时间')
+            this.getPrice(-1)
+            if (this.price.value) {
+              // this.getPrice(-1)
+              this.getTotalPrice(-1)
+            }
+            // this.getTotalPrice(0)
+          }
+          if (!this.list.time) {
+            this.time.hour = this.time.hours[0].key
+          }
+        } else {
+          // console.log('后天')
+          if (this.metering.value && this.size.value && this.merchant.custname) {
+            console.log('时间')
+            this.getPrice(-2)
+            if (this.price.value) {
+              // this.getPrice(-2)
+              this.getTotalPrice(-2)
+            }
+            // this.getTotalPrice(-2)
+          }
+          if (!this.list.time) {
+            this.time.hour = this.time.hours[0].key
+          }
+        }
+      // }
+  },
+  'time.hour' () {
+    // console.log(this.time.hour)
+    // alert(val)
+    // if (this.time.day == '今天') {
+
+    //   let nowDate = new Date()
+    //   let hour = nowDate.getHours();
+    //   let ohour = this.time.hour.split(':')[0]
+    //   console.log(hour)
+    //   console.log(hour >= parseInt(ohour))
+    //   if (hour > ohour) {
+    //     this.time.hour = ''
+    //     if (hour < 16) {
+    //       for (var i = 0; i < this.time.hours.length; i++) {
+    //         if (parseInt(this.time.hours[i].value) == hour) {
+    //           this.time.hour = this.time.hours[i].key
+    //           // console.log(parseInt(this.time.hours[i].value))
+    //           return false
+    //         }
+    //       }
+    //     } else {
+    //       this.$vux.toast.show({
+    //         text:'今天送气时间已过，请重新选择',
+    //         type:'text'
+    //       })
+    //       // return false
+    //       this.time.day = '明天'
+    //       this.time.hour = this.time.hours[0].key
+    //     }
+    //   }
+    // }
+    if (this.time.day == '明天') {
+      // if (!this.list.time) {
+        // this.time.hour = this.time.hours[0].key
+      // }
+      
+    }
+  }
+
+
+  // if (this.time.day == '今天') {
+  //     if (hour < 17) {
+  //       for (var i = 0; i < this.time.hours.length; i++) {
+  //         if (parseInt(this.time.hours[i].value) == hour) {
+  //           this.time.hour = this.time.hours[i].key
+  //           // console.log(parseInt(this.time.hours[i].value))
+  //           return false
+  //         }
+  //       }
+  //     } else {
+  //       this.time.day = '明天'
+  //       this.time.hour = this.time.hours[0].key
+  //     }
+  //   }
+  // time: {
+  //   handler(a, b) {
+  //     if (this.merchant.custname) {
+  //       // if (curVal.hour !== oldVal.hour)
+  //       // console.log(a.hour)
+  //       // console.log(b.hour)
+  //       if (this.time.day == '今天') {
+  //         // console.log('今天')
+  //         this.getPrice(0)
+  //         this.getTotalPrice(0)
+  //         let nowDate = new Date()
+  //         let hour = nowDate.getHours();
+  //         let ohour = this.time.hour.split(':')[0]
+  //         if (hour > ohour) {
+  //           this.time.hour = ''
+  //         }
+  //       } else if (this.time.day == '明天') {
+  //         // console.log('明天')
+  //         this.getPrice(-1)
+  //         this.getTotalPrice(-1)
+  //       } else {
+  //         // console.log('后天')
+  //         this.getPrice(-2)
+  //         this.getTotalPrice(-2)
+  //       }
+  //     }
+        
+  //   },
+  //   deep: true
+  // }
+
+},
+  data(){
+    return {
+      sizes: [],
+      priceValue: true,
+      host:'/huaxinneng/',
+      list: {},
+      custcode: '',
+      merchant:{
+        title:'商户选择',
+        placeholder:'请选择商户',
+        options:[{
+            "areaid": "01  ", 
+            "bank": "", 
+            "bankno": "", 
+            "busidate": "", 
+            "closedate": "", 
+            // "custcode": "230919", 
+            "custdegree": "", 
+            "custname": "东方彩制衣厂", 
+            "custtype": "1", 
+            "department": "新风", 
+            "electrograph": "", 
+            "favdate": "", 
+            "favorable": 0, 
+            "invoicetitle": "04", 
+            "invoicetype": "1", 
+            "linkaddr1": "", 
+            "linkaddr2": "", 
+            "linkman": "黎燕清", 
+            "memo": "", 
+            "mobiletel": "", 
+            "openacc": "2", 
+            "opendate": "2017-05-09 00:00:00", 
+            "priceview": "", 
+            "regaddr": "文华制衣城3座3楼东方彩制衣厂", 
+            "selltype": "", 
+            "staff": "杨彩谊", 
+            "stoptype": "", 
+            "usetype": "1   ", 
+            "webcode": "", 
+            "webupprice": 0, 
+            "worktel": "83279783"
+        }],
+        value:''
+      },
+      store:{
+        title:'门店选择',
+        show:false,
+        value:''
+      },
+      size:{
+        title:'规格',
+        spectype: '',
+        options:[{
+            "ctype": "", 
+            "descrip": "", 
+            "spectype": "", 
+            "weight": ""
+        }],
+        value:''
+      },
+      metering:{
+        title:'计量单位',
+        value:'1',
+        options:[{key:'瓶',value:'0'},{key:'公斤',value:'1'}]
+      },
+      price:{
+        title:'单价',
+        value:'',
+        value1:''
+      },
+      number:{
+        title:'瓶数',
+        placeholder:'请填写所需数量',
+        value:''
+      },
+      weight:{
+        title:'总净重',
+        value:0
+      },
+      time:{
+        title:'配送时间',
+        value:'',
+        day:'今天',
+        hour:'',
+        days:[{key:'今天',value:'today',disabled:false},{key:'明天',value:'tomorrow',disabled:false},{key:'后天',value:'aftertomorrow',disabled:false}],
+        hours:[{key:'09:00-11:00',value:'9',disabled:false},{key:'10:00-12:00',value:'10',disabled:false},{key:'11:00-13:00',value:'11',disabled:false},{key:'14:00-16:00',value:'14',disabled:false},{key:'15:00-17:00',value:'15',disabled:false},{key:'16:00-18:00',value:'16',disabled:false}]
+      },
+      remark:{
+        title:'备注',
+        value:'',
+        placeholder:'说点什么吧...'
+      },
+      merchantInfo:{ // 商户信息
+        title:'商户信息',
+        customerKind:{
+          title:'客户性质',
+          value:''
+        },
+        saleKind:{
+          title:'销售类型',
+          value:''
+        },
+        contact:{
+          title:'联系人',
+          value:''
+        },
+        phoneNumber:{
+          title:'联系电话',
+          value:''
+        }
+      },
+      // 配送地址
+      address:{
+        title:'配送地址',
+        value:'',
+        value1:'',
+        show:false,
+        floor: 0,
+        addrser: 1,
+        options:[{address:'地址1'},{address:'地址2'}]
+      },
+      tatol_price:'',
+      show:false,
+      showtext:'',
+      searchName:'',
+      // isenabled:true//按钮是否可按
+    }
+  },
+  computed:{
+    isenabled(){
+      if(this.merchant.custname && this.price.value && this.number.value){
+        return false
+      }
+    }
+  }
+}
+</script>
+
 <style lang="stylus" rel="stylesheet/stylus" scoped>
 @import './../libs/icon/iconfont.css'
 @import './../libs/stylus/same.styl'
@@ -118,6 +1296,20 @@ half()
 .main
   overflow-x:hidden
   background:#f2f3f8
+.price_btn
+  background:#eb942d
+  border: none
+  margin:10px 0
+  padding:5px 10px
+  border-radius:2px
+  color:#fff
+  position: absolute;
+  right: 0;
+  top: 0;
+.box {
+  position: relative;
+  width: 100%;
+}
 .main_input_box
   display:flex
   flex-direction:column
@@ -313,7 +1505,7 @@ half()
       color:$fontColor
   p:last-child
     margin-top:half(30)
-    font-size:half(28)
+    font-size:half(26)
     color:#666
 .searchBox
   
@@ -390,904 +1582,3 @@ half()
   color:#fff !important
 
 </style>
-
-<script>
-import { Checker , CheckerItem ,Selector, Group ,ToastPlugin , Loading} from 'vux'
-import axios from 'axios'
-import qs from 'qs'
-import selectbox from './selectbox.vue'
-import storebox from './storebox.vue'
-
-export default {
-components:{ Checker , CheckerItem ,Selector ,Group ,ToastPlugin ,Loading ,storebox ,selectbox},
-methods:{
-  submit(){
-    let data_obj={
-      appSer: this.list.appSer,
-      company:this.merchant.custname,//商户名
-      // custNo:this.merchant.custcode,//商户代码
-      custNo:this.merchant.custNo,//商户代码  
-      // custNo:this.merchant.custNo != '' ? this.merchant.custNo : this.list.custNo,//商户代码  
-      deptNo:this.merchant.deptno,//门店编号
-      deptNoName:this.merchant.deptNoName,//门店名
-      // deptNoName:this.merchant.deptNoName,//门店名
-
-      bottType:this.size.value,//规格
-      cType:this.metering.value,//计量单位
-      unitPrice:this.price.value?this.price.value:this.price.value1,//单价
-      bottleNum:this.number.value,//瓶数
-      bottleNum2:this.weight.value,//重量
-      appDate: this.getDate(this.time.day),//配送日期
-      time:this.time.hour,//时间段
-      // memo:this.remark.value,//备注
-      memo:this.remark.value,//备注
-      // custType:this.merchant.custtype.substr(0,2),//客户类型
-      custType:this.merchant.custtype,//客户类型
-      // name:this.merchant.linkman,//联系人
-      name:this.merchantInfo.contact.value,//联系人
-      // telePhone:this.merchant.mobiletel,//手机号
-      telePhone:this.merchantInfo.phoneNumber.value,//手机号
-      address:this.address.value,//地址
-      // selltype:this.merchant.selltype.substr(0,2),//销售类型
-      selltype:this.merchant.selltype,//销售类型
-      // selltype:this.list.selltype,
-      totalprice:this.tatol_price //总价
-    }
-
-    if (!data_obj.custNo) {
-      data_obj.custNo = this.list.custNo
-      // console.log('还没有？' + data_obj.custNo)
-    } 
-    // 校验数据
-    let self = this;
-    if(!data_obj.company){
-      self.$vux.toast.show({
-        text:'请选择商户',
-        type:'text'
-      })
-      return
-    }else if(!data_obj.bottType){
-      self.$vux.toast.show({
-        text:'请选择规格',
-        type:'text'
-      })
-      return
-    }else if (!data_obj.bottleNum) {
-      self.$vux.toast.show({
-        text:'请选择瓶数',
-        type:'text'
-      })
-      return
-    }else if(!data_obj.time){
-      self.$vux.toast.show({
-        text:'请选择送气的时段',
-        type:'text'
-      })
-      return
-    }else if(!data_obj.address){
-      self.$vux.toast.show({
-        text:'请选择送气的地址',
-        type:'text'
-      })
-      return
-    }
-    
-    localStorage.setItem('order_list',JSON.stringify(data_obj));
-    // console.log('placeOrder提交订单')
-    // console.log(data_obj)
-    // console.log(this.merchant.custtype)
-    // console.log(this.list.custType)
-    // console.log(data_obj.custType)
-    // console.log(data_obj.selltype)
-    // console.log(this.list.selltype)
-    this.$router.push('sureOrder');
-
-
-  },
-
-  isShow() {
-    this.store.show = !this.store.show
-  },
-  //根据商户获取门店
-  // searchStore(){
-  //   console.log('==========================')
-  //   this.getCustData();
-  //   if(this.merchant){
-  //     //如果选择的商户 有 department，就直接赋值给门店
-  //     this.store.value = this.merchant.deptname;
-  //     // console.log(this.store.value)
-  //     this.store.options = [{department:this.merchant.department}]
-  //   }else{
-      
-  //   }
-    
-  // },
-    //获取单价
-  getPrice(number){
-    let self = this;
-    self.show = true;//显示loading
-    self.showtext = '正在获取单价...';
-    let _data = {
-      //组合数据
-      unit:this.metering.value,//计量单位（1：公斤，0：瓶）
-      custNo:!this.merchant.custNo ? this.list.custNo : this.merchant.custNo,//客户号
-      // custNo:this.merchant.custcode,//客户号
-      custBottype:this.size.value,//规格
-      dayNum: number
-    }
-    _data = qs.stringify(_data)
-    // console.log(_data)
-    axios.post(''+this.host+'/custOrder/getKiloOrVasePrice',_data,{
-      headers:{
-          'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    }).then( data => {
-      //单价
-      self.show = false;
-      // console.log(data.data)
-      if(data.data.error == '0'){
-        this.price.value = data.data.errMsg;
-        console.log('有没有')
-        console.log(data.data.errMsg)
-      }else {
-        self.price.value = '';
-        self.$vux.toast.show({
-             text: '获取单价为空，请手动输入',
-             type:'text'
-           })
-      }
-
-
-
-      // else{
-      //   self.price.value = '';
-      //   self.$vux.toast.show({
-      //        text: '获取单价为空，请手动输入',
-      //        type:'text'
-      //      })
-      // }
-    })
-    
-  },
-  //获取总净重
-  getToatalWeight(){
-    let self = this;
-    self.show = true;
-    self.showtext = '正在获取总净重...'
-    let _data = qs.stringify({
-      ctype:self.size.value,
-      vaseNum:self.number.value
-    });
-
-    axios.post(''+this.host+'/custOrder/getAllWeigth',_data,{
-        headers:{
-          'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    }).then( data => {
-      self.show = false;
-      if(data.data.error == '0'){
-        self.weight.value = data.data.errMsg
-      }
-    })
-  },
-  //获取总价
-  getTotalPrice(number){
-    let self = this;
-    let _data;
-    if(self.price.value1){
-       _data = qs.stringify({
-        unit:self.metering.value,//计量单位
-        custNo:self.merchant.custNo,//用户号
-        // custNo:self.merchant.custcode,//用户号
-        custBottype:self.size.value,//规格
-        vaseNum:self.number.value,//瓶数
-        price:self.price.value1, // 单价
-        dayNum: number
-      })
-    }else{
-       _data = qs.stringify({
-        unit:self.metering.value,//计量单位
-        // custNo:self.merchant.custcode,//用户号
-        // custNo:self.merchant.custcode,//用户号
-        custNo:self.merchant.custNo,//用户号
-        custBottype:self.size.value,//规格
-        vaseNum:self.number.value,//瓶数
-        dayNum: number
-      })
-    }
-    
-    axios.post(''+this.host+'/custOrder/getPrice',_data,{
-       headers:{
-          'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    }).then(data => {
-      console.log('zongjia')
-      console.log(data.data)
-      if(data.data.error == '0'&& data.data.errMsg){
-        this.tatol_price = data.data.errMsg
-        // 将总价设置成本地存储
-        // this.tatol_price = self.metering.value + self.number.value
-        localStorage.setItem('total',data.data.errMsg)
-
-        return data.data.errMsg
-      }else if(data.data.error == '4004'){
-        this.tatol_price = '';
-        self.$vux.toast.show({
-          text:'获取总价出现问题，请联系管理员',
-          type:'text'
-        })
-      } else if (data.data.error == '-1') {
-        console.log('获取失败')
-      }
-    })
-  },
-//日期转换
- getDate(str){
-    if(str == '今天'){
-      let  date_ = new Date();
-      return date_.toLocaleDateString()
-    }else if(str == '明天'){
-      let date__ = new Date().setDate(new Date().getDate() +1 )
-      return new Date(date__).toLocaleDateString()
-    }else if( str == '后天'){
-      let date___ = new Date().setDate(new Date().getDate() +2 )
-      return new Date(date___).toLocaleDateString()
-    }
-  },
-//禁止此刻之前的时间段选择
-  hoursPick(){
-   // this.time.hour = null;
-    let hour = new Date().getHours();
-    // console.log(hour,this.time.hours)
-    if( this.time.day == '今天'){
-      for(var i = 0; i < this.time.hours.length; i ++){
-      if(parseInt( this.time.hours[i].value ) < hour){
-        // console.log(parseInt( this.time.hours[i].value ))
-        this.time.hours[i].disabled = true;
-      }
-    }
-    }else{
-      for(var i = 0; i < this.time.hours.length ; i ++){
-      if(parseInt( this.time.hours[i].value ) < hour){
-        // console.log(parseInt( this.time.hours[i].value ))
-        this.time.hours[i].disabled = false;
-      }
-    }
-  }
- },
-
- // 将数据放入
- search(val){
-   this.merchant = val;
-   this.merchant.custtype = this.merchant.custtype.replace(/\s+/g,"")
-   this.merchant.custNo = this.merchant.custcode
-   console.log('客户号')
-   console.log(this.merchant)
- },
- //如果没有门店，显示搜索框
-  showSearchStore(){
-    this.store.show = true;
-    return ''
- },
- // 门店搜索结果
- searchStore(val){
-  this.merchant.deptnoname = val.deptnoname;
-  this.store.show = false;
- }
-},
-created(){
-  // console.log('有没有merchant')
-  // console.log(this.merchant)
-  // console.log('this.list.custNo。。。')
-  // console.log(this.list.custNo == '' ? this.merchant.custNo : this.list.custNo)
-
-  let nowDate = new Date()
-  let hour = nowDate.getHours();
-  if (hour > 16) {
-    this.time.day = '明天'
-    // this.getPrice(-1)
-    // this.getTotalPrice(-1)
-    this.time.days[0].disabled = true; 
-  } else {
-    this.time.days[0].disabled = false; 
-  }
-  
-  if (localStorage.getItem('order_list')) {
-    this.list = JSON.parse(localStorage.getItem('order_list'))
-
-    this.merchant.deptNoName = this.list.deptNoName
-    // console.log(this.list.deptNoName)
-    this.merchant.custname = this.list.company
-
-    this.merchant.deptno = this.list.deptNo
-    // console.log(this.list.deptNoName)
-    // console.log(this.merchant.deptnoname)
-    let bottType = this.list.bottType
-    if (bottType.indexOf(" ") >= 0) {
-      this.size.value = bottType.replace(/\s+/g,"")
-    } else {
-      this.size.value = bottType
-    }
-    
-    // console.log(this.size.value)
-    if (this.list.cType != '') {
-      this.metering.value = this.list.cType
-    }
-    
-    // if (this.time.day == '今天') {
-    //   // console.log('今天')
-    //   this.getPrice(0)
-    //   console.log('kankan')
-    //   this.getTotalPrice(0)
-    //   let nowDate = new Date()
-    //   let hour = nowDate.getHours();
-    //   let ohour = this.time.hour.split(':')[0]
-    //   if (hour > ohour) {
-    //     this.time.hour = ''
-    //   }
-    // } else if (this.time.day == '明天') {
-    //   // console.log('明天')
-    //   this.getPrice(-1)
-    //   this.getTotalPrice(-1)
-    // } else {
-    //   // console.log('后天')
-    //   this.getPrice(-2)
-    //   this.getTotalPrice(-2)
-    // }
-    // this.price.value1 = this.list.unitPrice
-    this.number.value = this.list.bottleNum
-
-    // if (this.list.appDate.indexOf)
-    let dates = this.list.appDate
-    if (dates.indexOf('/') > 0) {
-      dates = dates.split('/')
-    } else {
-      let str = dates.split(' ')[0]
-      dates = str.split('-')
-    }
-    // dates[1] = dates[1] - 1
-    // console.log(this.list.time)
-    let nowDate = new Date()
-    let hour = nowDate.getHours();
-    // console.log(nowDate.dates())
-    let day = parseInt(dates[2]) - nowDate.getDate()
-    // console.log(parseInt(dates[2]))
-    // console.log(nowDate.getDate())
-    // console.log(day)
-    
-    if (day == 2) {
-      this.time.day = '后天'
-    } else if (day == 1) {
-      this.time.day = '明天'
-    } else if (day == 0 && hour > 16) {
-      this.time.day = '明天'
-    } else {
-      this.time.day = '今天'
-      this.getPrice(0)
-      console.log('kankan')
-    }
-    // console.log(this.list.time)
-    // console.log('hour' + this.list.time.split(':')[0])
-    // this.list.time.split(':')[0]
-    if (this.time.day == '今天') {
-      
-      // console.log('hour' + hour)
-      for(var i = 0; i < this.time.hours.length ; i ++){
-        if (parseInt(this.time.hours[i].value) >= hour) {
-          this.time.hour = this.time.hours[i].key
-        }
-      }
-    } else {
-      this.time.hour = this.list.time
-    }
-    
-    // console.log(this.time.hours)
-
-    this.remark.value = this.list.memo
-
-    
-    // this.merchantInfo.customerKind.value = this.list.custType.replace(/\s+/g,"") == '01' ? '工商业客户' : '工业客户'
-    let custType = this.list.custType
-
-  
-    this.merchantInfo.customerKind.value = this.list.custType == '01' ? '工商业客户' : '工业客户'
-    this.merchant.custtype = this.list.custType
-
-    // debugger
-    // let selltype = this.list.selltype.toString()
-    // if (selltype.indexOf(" ") >= 0) {
-    //   this.list.selltype = selltype.replace(/\s+/g,"")
-    // } else {
-    //   this.list.selltype
-    // }
-    // switch (this.list.selltype.replace(/\s+/g,"")) {
-    switch (this.list.selltype) {
-      case '01':
-        this.merchant.selltype = '01'
-        this.merchantInfo.saleKind.value = '结算客户'
-        break;
-      case '02':
-        this.merchant.selltype = '02'
-        this.merchantInfo.saleKind.value = '月票客户'
-        break;
-      case '03':
-        this.merchant.selltype = '03'
-        this.merchantInfo.saleKind.value = '现金客户'
-        break;
-      case '04':
-        this.merchant.selltype = '04'
-        this.merchantInfo.saleKind.value = '其他'
-        break;
-      default:
-        this.merchantInfo.saleKind.value = ''
-    }
-    this.merchantInfo.contact.value = this.list.name
-    this.merchantInfo.phoneNumber.value = this.list.telePhone
-
-    // console.log('客户号。。。')
-    // console.log(this.list.custNo == '' ? this.merchant.custNo : this.list.custNo)
-    // console.log(this.merchant.custNo != '')
-    // console.log('搜索' + this.merchant.custNo)
-    // console.log('缓存' + this.list.custNo)
-    axios.post(this.host + '/custOrder/getAddress',qs.stringify({
-        // custCode:this.list.custNo == '' ? this.merchant.custNo : this.list.custNo
-        custCode:this.list.custNo
-      }),{
-        headers:{
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }).then( data => {
-        if(data.data.error == '0'){
-          // console.log(data.data.errMsg)
-          let address = JSON.parse(data.data.errMsg);
-          // console.log('huancun')
-          // console.log(address)
-          address.map((item, key) => {
-            if (item.address == '') {
-              // console.log(key)
-              address.splice(key, 1)
-            }
-          })
-          if(address.length == 2 && address[1].address==''){
-            this.address.options[0] = address[0];
-            this.address.options.splice(1,1);
-          }else{
-            this.address.options = address;
-          }
-          // console.log(this.address.options[0].address)
-          this.address.value = this.address.options[0].address;
-        }
-      })
-    
-
-    document.body.scrollTop = 0
-  }
-
-
-  //获取规格
-  this.show = true;
-  axios.post(''+this.host+'/custOrder/getStandard').then(data =>{
-    // console.log('规格')
-    // console.log(data.data)
-    this.show = false;
-    if(data.data.error == '0'){
-      this.size.options = data.data.errMsg;
-
-      this.size.options.map(item => {
-        if (item.ctype === this.list.bottType) {
-          this.list.bottType = item
-        }
-      })
-      // console.log(this.list.bottType)
-    }else if(data.data.error == '-1'){
-      this.$vux.toast.show({
-        text:'获取数据失败，请稍后重试',
-        type:'text'
-      })
-    }
-  })
-  //禁止此刻之前的时间段选择
-  this.hoursPick();
-  
-  
-
-},
-watch:{
-  merchant:{
-    handler:function(){
-      // console.log("获取工商客户资料")
-      // console.log(this.merchant,'获取工商客户资料')
-      let self = this;
-      //客户资料
-     
-      
-      self.merchantInfo.contact.value = self.merchant.linkman;
-      //客户性质
-      // console.log('hahaha')
-      // console.log(this.merchant)
-      switch (this.merchant.custtype.substr(0,2)) {
-        case '01':
-          self.merchantInfo.customerKind.value = '工商业客户';
-          break;
-         case '02':
-          self.merchantInfo.customerKind.value = '工业客户';
-          break;
-      } 
-
-      this.merchantInfo.phoneNumber.value = this.merchant.mobiletel;
-      //销售类型
-      // switch (this.merchant.selltype.substr(0,2)) {
-      let selltype = this.merchant.selltype.toString()
-      if (selltype.indexOf(" ") >= 0) {
-        this.merchant.selltype = selltype.replace(/\s+/g,"")
-      } else {
-        this.merchant.selltype
-      }
-      switch (this.merchant.selltype) {
-        case '01':
-          self.merchantInfo.saleKind.value = '结算客户'
-          break;
-        case '02':
-          self.merchantInfo.saleKind.value = '月票客户'
-          break;
-        case '03':
-          self.merchantInfo.saleKind.value = '现金客户'
-          break;
-        case '04':
-          self.merchantInfo.saleKind.value = '其他'
-          break;
-      }
-
-      //获取地址
-      // if (this.list.address.length == 2 && this.list.address
-      axios.post(self.host + '/custOrder/getAddress',qs.stringify({
-        // custCode:self.merchant.custcode
-        custCode:self.merchant.custNo
-      }),{
-        headers:{
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }).then( data => {
-        if(data.data.error == '0'){
-          // console.log(data.data.errMsg)
-            let address = JSON.parse(data.data.errMsg);
-            // console.log('搜索出来的')
-            // console.log(JSON.parse(data.data.errMsg))
-            address.map((item, key) => {
-              if (item.address == '') {
-                // console.log(key)
-                address.splice(key, 1)
-              }
-            })
-            // console.log(address)
-            // self.address.options = address;
-            // console.log( self.address.options)
-            // if(self.address.options[1].address!=undefined && self.address.options[1].address==''){
-            //   self.address.options.splice(1,1)
-            // }
-            if(address.length == 2 && address[1].address==''){
-              self.address.options[0] = address[0];
-              self.address.options.splice(1,1);
-            }else{
-              self.address.options = address;
-            }
-            
-            self.address.value = self.address.options[0].address;
-            // console.log(self.address.value)
-            // self.address.options[0].value = self.merchant.linkaddr1;
-            // if(self.address.options.length == 2 && self.address.options[1]==''){
-            //   self.address.options[1].value = self.merchant.linkaddr2;              
-            // }
-        }
-      })
-
-      if(this.size.value && this.merchant && this.metering){
-        // if (!this.list) {
-          if (this.time.day == '今天') {
-            // console.log('今天')
-            this.getPrice(0)
-            let nowDate = new Date()
-            let hour = nowDate.getHours();
-            let ohour = this.time.hour.split(':')[0]
-            if (hour > ohour) {
-              this.time.hour = ''
-            }
-          } else if (this.time.day == '明天') {
-            // console.log('明天')
-            this.getPrice(-1)
-          } else {
-            // console.log('后天')
-            this.getPrice(-2)
-          }
-        // }
-      }
-      this.store.show = false;
-      //是否有web_code，有默认公斤，没有默认瓶
-      if(this.merchant.web_code!=''){
-        self.metering.value = '1'
-      }else{
-        self.metering.value = '0'        
-      }
-      this.size.value = 'YSP118';// 更改默认的规格
-
-      this.price.value = '';
-      this.price.value1 = '';
-      this.number.value = '';
-      this.weight.value = '';
-        // }
-    },
-    deep:true    
-  },
-  metering:{
-    handler(){
-      if(this.size.value && this.merchant){
-        // if (this.list) {
-          if (this.time.day == '今天') {
-            // console.log('今天')
-            this.getPrice(0)
-            this.getTotalPrice(0)
-            let nowDate = new Date()
-            let hour = nowDate.getHours();
-            let ohour = this.time.hour.split(':')[0]
-            if (hour > ohour) {
-              this.time.hour = ''
-            }
-          } else if (this.time.day == '明天') {
-            // console.log('明天')
-            this.getPrice(-1)
-            this.getTotalPrice(-1)
-          } else {
-            // console.log('后天')
-            this.getPrice(-2)
-            this.getTotalPrice(-2)
-          }
-        // }
-          
-      }
-    },
-    deep:true
-  },
-  price:{
-    handler(){
-      if(this.metering.value && this.merchant && this.size.value){
-        // if (this.list) {
-          if (this.time.day == '今天') {
-            // console.log('今天')
-            this.getPrice(0)
-            let nowDate = new Date()
-            let hour = nowDate.getHours();
-            let ohour = this.time.hour.split(':')[0]
-            if (hour > ohour) {
-              this.time.hour = ''
-            }
-          } else if (this.time.day == '明天') {
-            // console.log('明天')
-            this.getPrice(-1)
-          } else {
-            // console.log('后天')
-            this.getPrice(-2)
-          }
-        // }
-          
-      }
-    },
-    deep:true
-  },
-  size:{
-    handler(){
-      if(this.metering.value && this.merchant && this.size.value){
-        // if (this.list) {
-          if (this.time.day == '今天') {
-            // console.log('今天')
-            this.getPrice(0)
-            let nowDate = new Date()
-            let hour = nowDate.getHours();
-            let ohour = this.time.hour.split(':')[0]
-            if (hour > ohour) {
-              this.time.hour = ''
-            }
-          } else if (this.time.day == '明天') {
-            // console.log('明天')
-            this.getPrice(-1)
-          } else {
-            // console.log('后天')
-            this.getPrice(-2)
-          }
-        // }
-          
-      }
-      
-    },
-    deep:true
-  },
-  number:{
-    handler(a,b){
-      // 获取总净重
-      // console.log(a,b)
-      if( this.size.value && this.number.value && this.metering.value == '1'){
-        this.getToatalWeight()
-      }
-      if(this.size.value && this.metering.value && this.merchant && this.number.value){
-        this.getTotalPrice();
-        if (this.time.day == '今天') {
-          // console.log('今天')
-          this.getTotalPrice(0)
-          let nowDate = new Date()
-          let hour = nowDate.getHours();
-          let ohour = this.time.hour.split(':')[0]
-          if (hour > ohour) {
-            this.time.hour = ''
-          }
-        } else if (this.time.day == '明天') {
-          // console.log('明天')
-          this.getTotalPrice(-1)
-        } else {
-          // console.log('后天')
-          this.getTotalPrice(-2)
-        }
-      }
-    },
-    deep:true
-  },
-  time: {
-    handler(curVal, oldVal) {
-      if (this.merchant.custname) {
-        if (this.time.day == '今天') {
-          // console.log('今天')
-          this.getPrice(0)
-          this.getTotalPrice(0)
-          let nowDate = new Date()
-          let hour = nowDate.getHours();
-          let ohour = this.time.hour.split(':')[0]
-          if (hour > ohour) {
-            this.time.hour = ''
-          }
-        } else if (this.time.day == '明天') {
-          // console.log('明天')
-          this.getPrice(-1)
-          this.getTotalPrice(-1)
-        } else {
-          // console.log('后天')
-          this.getPrice(-2)
-          this.getTotalPrice(-2)
-        }
-      }
-        
-    },
-    deep: true
-  }
-
-},
-  data(){
-    return {
-      host:'/huaxinneng/',
-      list: {},
-      custcode: '',
-      merchant:{
-        title:'商户选择',
-        placeholder:'请选择商户',
-        options:[{
-            "areaid": "01  ", 
-            "bank": "", 
-            "bankno": "", 
-            "busidate": "", 
-            "closedate": "", 
-            // "custcode": "230919", 
-            "custdegree": "", 
-            "custname": "东方彩制衣厂", 
-            "custtype": "1", 
-            "department": "新风", 
-            "electrograph": "", 
-            "favdate": "", 
-            "favorable": 0, 
-            "invoicetitle": "04", 
-            "invoicetype": "1", 
-            "linkaddr1": "", 
-            "linkaddr2": "", 
-            "linkman": "黎燕清", 
-            "memo": "", 
-            "mobiletel": "", 
-            "openacc": "2", 
-            "opendate": "2017-05-09 00:00:00", 
-            "priceview": "", 
-            "regaddr": "文华制衣城3座3楼东方彩制衣厂", 
-            "selltype": "", 
-            "staff": "杨彩谊", 
-            "stoptype": "", 
-            "usetype": "1   ", 
-            "webcode": "", 
-            "webupprice": 0, 
-            "worktel": "83279783"
-        }],
-        value:''
-      },
-      store:{
-        title:'门店选择',
-        show:false,
-        value:''
-      },
-      size:{
-        title:'规格',
-        options:[{
-            "ctype": "", 
-            "descrip": "", 
-            "spectype": "", 
-            "weight": "14.5"
-        }],
-        value:''
-      },
-      metering:{
-        title:'计量单位',
-        value:'1',
-        options:[{key:'瓶',value:'0'},{key:'公斤',value:'1'}]
-      },
-      price:{
-        title:'单价',
-        value:'',
-        value1:''
-      },
-      number:{
-        title:'瓶数',
-        placeholder:'请填写所需数量',
-        value:''
-      },
-      weight:{
-        title:'总净重',
-        value:0
-      },
-      time:{
-        title:'配送时间',
-        value:'',
-        day:'今天',
-        hour:'',
-        days:[{key:'今天',value:'today',disabled:false},{key:'明天',value:'tomorrow',disabled:false},{key:'后天',value:'aftertomorrow',disabled:false}],
-        hours:[{key:'09:00-11:00',value:'9',disabled:false},{key:'10:00-12:00',value:'10',disabled:false},{key:'11:00-13:00',value:'11',disabled:false},{key:'14:00-16:00',value:'14',disabled:false},{key:'15:00-17:00',value:'15',disabled:false},{key:'16:00-18:00',value:'16',disabled:false}]
-      },
-      remark:{
-        title:'备注',
-        value:'',
-        placeholder:'说点什么吧...'
-      },
-      merchantInfo:{ // 商户信息
-        title:'商户信息',
-        customerKind:{
-          title:'客户性质',
-          value:''
-        },
-        saleKind:{
-          title:'销售类型',
-          value:''
-        },
-        contact:{
-          title:'联系人',
-          value:''
-        },
-        phoneNumber:{
-          title:'联系电话',
-          value:''
-        }
-      },
-      // 配送地址
-      address:{
-        title:'配送地址',
-        value:'',
-        value1:'',
-        show:false,
-        options:[{address:'地址1'},{address:'地址2'}]
-      },
-      tatol_price:'',
-      show:false,
-      showtext:'',
-      searchName:'',
-      // isenabled:true//按钮是否可按
-    }
-  },
-  computed:{
-    isenabled(){
-      if(this.merchant.custname && this.price.value && this.number.value){
-        return false
-      }
-    }
-  }
-}
-</script>

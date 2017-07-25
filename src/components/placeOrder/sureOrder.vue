@@ -26,7 +26,8 @@
     </group>
     <div class="tatol">
       <p>总价<span>￥{{tatol}}</span></p>
-      <p>{{list.orderunit!='1'?'(瓶数*单价)':'(总净重*单价)'}}</p>
+      <!-- <p>{{list.unit==1?'(瓶数*单价)':'(总净重*单价)'}}</p> -->
+      <p>{{ list.unit == '0' ? '(瓶数*单价)' : '(总净重*单价)' }}</p>
     </div>
     <div class="btn-box">
       <button class="btn"  :disabled="order_status" @click="submit">{{order_status?'已打印，不可修改':'确定'}}</button>
@@ -66,7 +67,8 @@ export default {
       list:[],
       tatol:'100',
       order_status:false, //订单打印状态，已打印true未打印false
-      show:false
+      show:false,
+      botttype: []
     }
   },
   methods:{
@@ -81,8 +83,8 @@ export default {
       // list.deptNoName = list.deptnoname;
       // delete list.deptnoname;
       list = qs.stringify(list);
-      // console.log('sure')
-      // console.log(JSON.parse(localStorage.getItem('order_list')))
+      console.log('sure')
+      console.log(JSON.parse(localStorage.getItem('order_list')))
       let lists = JSON.parse(localStorage.getItem('order_list'))
       let url = ''
       if (lists.appSer) {
@@ -114,24 +116,99 @@ export default {
     }
   },
   mounted(){
-    let self = this;
-    let list = JSON.parse(localStorage.getItem('order_list'));
-    // console.log('localStorage')
-    // console.log(list)
-    self.sendInfo[0].value = list.bottType;
-    self.sendInfo[1].value = list.orderunit=='1'?'公斤':'瓶';
-    self.sendInfo[2].value = list.unitPrice;
-    self.sendInfo[3].value = list.bottleNum;
-    self.sendInfo[4].value = list.bottleNum2 + 'kg';
-    self.sendInfo[5].value = list.deptNoName;
-    self.sendInfo[6].value = list.address;
-    self.sendInfo[7].value = list.appDate.substr(0,10) + '  ' + list.time;
-    self.sendInfo[8].value = list.name;
-    self.sendInfo[9].value = list.telePhone;
-    self.sendInfo[10].value = list.memo;
+    //获取规格
+    // axios.post(''+this.host+'/custOrder/getStandard').then(data =>{
+    //   if(data.data.error == '0'){
+    //     this.botttype = data.data.errMsg;
+    //     console.log(this.botttype)
+    //   } else if(data.data.error == '-1'){
+    //     this.$vux.toast.show({
+    //       text:'获取规格数据失败，请稍后重试',
+    //       type:'text'
+    //     })
+    //   }
+    // })
 
-    self.merchantInfo[0].value = list.company;
-    self.merchantInfo[1].value = list.custType=='01'?'工商业客户':'工业客户';
+    let self = this;
+    // this.list = 
+    // let list = JSON.parse(localStorage.getItem('order_list'));
+    this.list = JSON.parse(localStorage.getItem('order_list'));
+    // console.log('localStorage')
+    console.log(this.list.botttype)
+    console.log('this.botttype')
+    console.log(this.botttype)
+    //获取规格
+    axios.post(''+this.host+'/custOrder/getStandard').then(data =>{
+      if(data.data.error == '0'){
+        this.botttype = data.data.errMsg;
+        this.botttype.map(item => {
+          if (item.spectype === this.list.bottType) {
+            self.sendInfo[0].value = item.ctype
+          }
+        })
+        console.log(this.botttype)
+      } else if(data.data.error == '-1'){
+        this.$vux.toast.show({
+          text:'获取规格数据失败，请稍后重试',
+          type:'text'
+        })
+      }
+    })
+
+        // this.botttype.map(item => {
+        //   if (item.spectype === this.list.bottType) {
+        //     self.sendInfo[0].value = item.ctype
+        //   }
+        // })
+
+    self.sendInfo[1].value = this.list.unit=='1'?'公斤':'瓶';
+    self.sendInfo[2].value = this.list.unitPrice;
+    self.sendInfo[3].value = this.list.bottleNum;
+    self.sendInfo[4].value = this.list.sumWeight + 'kg';
+    self.sendInfo[5].value = this.list.deptNoName;
+    self.sendInfo[6].value = this.list.address;
+    self.sendInfo[7].value = this.list.appDate.substr(0,10) + '  ' + this.list.time;
+    self.sendInfo[8].value = this.list.name;
+    self.sendInfo[9].value = this.list.telePhone;
+    self.sendInfo[10].value = this.list.memo;
+
+    if (this.list.sumWeight === 0 || this.list.sumWeight === '' || this.list.sumWeight === null) {
+      self.sendInfo.splice(4, 1)
+    }
+
+    self.merchantInfo[0].value = this.list.company;
+    // self.merchantInfo[1].value = this.list.custType=='01'?'工商业客户':'工业客户';
+    if (typeof(this.list.custType) === 'number') {
+      switch (this.list.custType) {
+        case 1:
+          self.merchantInfo[1].value = '民用';
+          break;
+        case 2:
+          self.merchantInfo[1].value = '商用';
+          break;
+        case 3:
+          self.merchantInfo[1].value = '工业';
+          break;
+        case 4:
+          self.merchantInfo[1].value = '批发';
+          break;
+      } 
+    } else {
+      switch (this.list.custType) {
+        case '1':
+          self.merchantInfo[1].value = '民用';
+          break;
+        case '2':
+          self.merchantInfo[1].value = '商用';
+          break;
+        case '3':
+          self.merchantInfo[1].value = '工业';
+          break;
+        case '4':
+          self.merchantInfo[1].value = '批发';
+          break;
+      } 
+    }
     // self.merchantInfo[2].value = list.selltype;
     // console.log('数字？' + !isNaN(list.selltype))
 
@@ -143,7 +220,7 @@ export default {
     // } else {
     //   list.selltype
     // }
-    switch (list.selltype) {
+    switch (this.list.selltype) {
         case '01':
           self.merchantInfo[2].value = '结算客户'
           break;
@@ -159,7 +236,7 @@ export default {
       }
     //总价
     // self.tatol =  localStorage.getItem('total');
-    self.tatol = list.totalprice;
+    self.tatol = this.list.totalprice;
     // 订单状态
     // self.order_status = list.status;
   }

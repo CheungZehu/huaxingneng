@@ -120,7 +120,7 @@ html,body
         top:-95px
 
 .tip
-  font-size:10px
+  font-size:16px
   width:190px
   position:absolute
   top:50%
@@ -147,6 +147,7 @@ export default {
           // console.log(data.data)
           // let data_ = JSON.parse(data.data.errMsg);
           // self.src = data_.imgurl;
+          console.log('shoudong')
           console.log(self.src)
         }
         window.location.reload();

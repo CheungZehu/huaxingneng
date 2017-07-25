@@ -36,9 +36,13 @@
         <i class="mingxi" ></i>
          <span class="index_list_text">收款明细</span>
        </li>
-       <li class="index_list_li3" @click="router('industryPrice')">
-         <i class="icon iconfont icon-wangjia" ></i>
+       <li @click="router('industryPrice')">
+        <i class="icon iconfont icon-wangjia" ></i>
          <span class="index_list_text">行业网价</span>
+       </li>
+       <li class="index_list_li3" @click="router('payChangeHistory')">
+         <i class="icon iconfont icon-wangjia" ></i>
+         <span class="index_list_text">价格变更历史</span>
        </li>
        <li class="index_list_li4" @click="router('myData')">
          <i class="icon iconfont icon-wodeziliao" ></i>

@@ -36,14 +36,23 @@ export default {
   components:{ Grid, GridItem, GroupTitle ,Loading},
   created(){
     this.form.operater =this.util.getUrlParam("operater");
+    // this.form.notify_url =this.util.getUrlParam("operater");
+    this.openId =this.util.getUrlParam("operater");
+    // alert(this.openId)
+    this.getName()
   },
   data(){
     return{
+      openId: '',
       form:{
         num:"",
-        operater:""
+        operaterName: "",
+        operater:"",
+        // notify_url: ''
+        // operaterName: ''
       },
       
+
       row1:[{value:'1'},{value:'2'},{value:'3'}],
       
       row2:[{value:'4'},{value:'5'},{value:'6'}],
@@ -52,10 +61,20 @@ export default {
       int:'',
       flow:'',
       xiaoshu:false,
-      loading:false
+      loading:false,
+      name: ''
     }
   },
   methods:{
+    getName () {
+      // axios.post('' + '/huaxinneng/user/ifregister').then(res => {
+      axios.post('' + '/huaxinneng/user/getSalesmanByOpenId', qs.stringify({openId: this.openId})).then(res => {
+        let a = JSON.parse(res.data.errMsg)
+        this.form.operaterName = a.oname
+        console.log(a)
+        // alert(this.form.operaterName)
+      })
+    },
     key(event){
       let self = this;
       //获取点击区域的字符串
@@ -92,6 +111,8 @@ export default {
             self.loading = true;
             this.form.num  = this.num*100;
             axios.post(''+'/huaxinneng/custOrder/pay',qs.stringify(this.form)).then(data=>{
+              // console.log(data.data)
+              // alert(this.form.operaterName)
               let content = data.data.errMsg;
               window.location.href=content;
             }).catch(data =>{
@@ -147,6 +168,8 @@ export default {
             self.loading = true;
             this.form.num  = this.num*100;
             axios.post(''+'/huaxinneng/custOrder/pay',qs.stringify(this.form)).then(data=>{
+              // console.log(data.data)
+              // alert(this.form.operaterName)
               let content = data.data.errMsg;
               window.location.href=content;
             }).catch(data =>{

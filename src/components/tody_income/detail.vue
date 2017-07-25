@@ -37,6 +37,122 @@
     <loading v-model="showLoading"></loading>
   </div>
 </template>
+
+<script>
+import  { ToastPlugin ,Loading } from 'vux'
+import search from './search.vue'
+import axios from 'axios'
+import qs from 'qs'
+import { mapMutations } from 'vuex'
+export default {
+  components:{ search , ToastPlugin ,Loading},
+  data(){
+    return{
+      host:'/huaxinneng/',
+      total:'5000',
+      count:5,
+      search_day:'7',
+      list:[],
+      isShow:false,
+      results: [],
+      value: '',
+      chengeData:'',
+      chengeDataIndex:'',
+      search_:'',
+      showLoading:false
+    }
+  },
+  methods:{
+    toggleShow(k,n){//点击 关联 执行的
+      if(!this.isShow){
+        console.log(n);
+        this.chengeDataIndex = k;// 要修改的是第几条数据
+        this.chengeData = n;// 要修改的数据
+      }
+      this.isShow = !this.isShow;
+    },
+    back(){
+      this.$router.go(-1)
+    },
+    show_res(val){
+      this.results = val;
+      console.log(val);
+      // console.log(this.results);
+    },
+    //请求信息
+    getDetail(day,callback){
+      let self = this;
+      this.showLoading = true;
+      axios.get(''+this.host+'custom/getMoneyInfo',{
+        params:{
+          day:day,
+          operater:'80566'
+        }
+      }).then( data => {
+        if(callback){
+          callback(data)
+        }else{
+          console.log(data.data);
+          self.showLoading = false;
+          if(data.data.errcode == '0'){
+            self.total = data.data.money;
+            self.count = data.data.count;
+            self.list = data.data.list;
+            // console.log(self.transformationDate(self.list[0].updateTime))
+          }
+        }
+      })
+    },
+    //转化时间格式
+    transformationDate(date){
+      // console.log(date)
+      let d = new Date(date);
+      console.log();
+      let str_date = '';
+      let str_time = '';
+      if(d.getMonth() == new Date().getMonth() && d.getDate() == new Date().getDate()){
+        str_date = '今天';
+        //str_time = d.toLocaleTimeString().substr(0,5);
+        str_time = d.getHours()+":"+d.getSeconds()
+      }else if( d.getMonth() == new Date().getMonth() && d.getDate() == (new Date().getDate()-1) ){
+        str_date = '昨天' ;
+        //str_time =  d.toLocaleTimeString().substr(0,5);  
+        str_time = d.getHours()+":"+d.getSeconds() 
+      }else{
+        str_date = (d.getMonth()+1) + '-' + (d.getDate()) ;
+        str_time = d.getHours()+":"+d.getSeconds()
+      }
+      return [str_date,str_time];
+    },
+    //从search组件传过来的值
+    search(val){
+      console.log(val,'组件传值')
+      this.isShow = false;
+      let self = this;
+      self.list[self.chengeDataIndex].custName = val.custname;
+      if( self.list[self.chengeDataIndex].verifyStatus == 1 || self.list[self.chengeDataIndex].verifyStatus == 4 ){
+        self.list[self.chengeDataIndex].verifyStatus = 2;
+      }
+    },
+    shutdown(){
+      this.isShow = false;
+    }
+  },
+  mounted(){
+    let self = this;
+    self.showLoading = true;
+    this.getDetail(self.search_day);
+    console.log(this.list);
+  },
+  watch:{
+    search_day(){
+      this.getDetail(this.search_day)
+    }
+  }
+}
+
+</script>
+
 <style lang="stylus" rel="stylesheet/stylus" scoped>
 @import './../libs/stylus/same.styl'
 .main
@@ -196,117 +312,4 @@
     top: 15px;
 </style>
 
-<script>
-import  { ToastPlugin ,Loading } from 'vux'
-import search from './search.vue'
-import axios from 'axios'
-import qs from 'qs'
-import { mapMutations } from 'vuex'
-export default {
-  components:{ search , ToastPlugin ,Loading},
-  data(){
-    return{
-      host:'/huaxinneng/',
-      total:'5000',
-      count:5,
-      search_day:'7',
-      list:[],
-      isShow:false,
-      results: [],
-      value: '',
-      chengeData:'',
-      chengeDataIndex:'',
-      search_:'',
-      showLoading:false
-    }
-  },
-  methods:{
-    toggleShow(k,n){//点击 关联 执行的
-      if(!this.isShow){
-        console.log(n);
-        this.chengeDataIndex = k;// 要修改的是第几条数据
-        this.chengeData = n;// 要修改的数据
-      }
-      this.isShow = !this.isShow;
-    },
-    back(){
-      this.$router.go(-1)
-    },
-    show_res(val){
-      this.results = val;
-      console.log(val);
-      // console.log(this.results);
-    },
-    //请求信息
-    getDetail(day,callback){
-      let self = this;
-      this.showLoading = true;
-      axios.get(''+this.host+'custom/getMoneyInfo',{
-        params:{
-          day:day,
-          operater:'80566'
-        }
-      }).then( data => {
-        if(callback){
-          callback(data)
-        }else{
-          console.log(data.data);
-          self.showLoading = false;
-          if(data.data.errcode == '0'){
-            self.total = data.data.money;
-            self.count = data.data.count;
-            self.list = data.data.list;
-            // console.log(self.transformationDate(self.list[0].updateTime))
-          }
-        }
-      })
-    },
-    //转化时间格式
-    transformationDate(date){
-      // console.log(date)
-      let d = new Date(date);
-      console.log();
-      let str_date = '';
-      let str_time = '';
-      if(d.getMonth() == new Date().getMonth() && d.getDate() == new Date().getDate()){
-        str_date = '今天';
-        //str_time = d.toLocaleTimeString().substr(0,5);
-        str_time = d.getHours()+":"+d.getSeconds()
-      }else if( d.getMonth() == new Date().getMonth() && d.getDate() == (new Date().getDate()-1) ){
-        str_date = '昨天' ;
-        //str_time =  d.toLocaleTimeString().substr(0,5);  
-        str_time = d.getHours()+":"+d.getSeconds() 
-      }else{
-        str_date = (d.getMonth()+1) + '-' + (d.getDate()) ;
-        str_time = d.getHours()+":"+d.getSeconds()
-      }
-      return [str_date,str_time];
-    },
-    //从search组件传过来的值
-    search(val){
-      console.log(val,'组件传值')
-      this.isShow = false;
-      let self = this;
-      self.list[self.chengeDataIndex].custName = val.custname;
-      if( self.list[self.chengeDataIndex].verifyStatus == 1 || self.list[self.chengeDataIndex].verifyStatus == 4 ){
-        self.list[self.chengeDataIndex].verifyStatus = 2;
-      }
-    },
-    shutdown(){
-      this.isShow = false;
-    }
-  },
-  mounted(){
-    let self = this;
-    self.showLoading = true;
-    this.getDetail(self.search_day);
-    console.log(this.list);
-  },
-  watch:{
-    search_day(){
-      this.getDetail(this.search_day)
-    }
-  }
-}
 
-</script>

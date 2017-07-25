@@ -57,6 +57,7 @@ import chengeSuccess from './components/placeOrder/chengeSuccess' // 修改订�
 import pay from './components/placeOrder/pay' // 支付页面
 import todayIncome from './components/tody_income/todayIncome' //今日收款
 import detail from './components/tody_income/detail' //明细
+import payChangeHistory from './components/tody_income/payChangeHistory' //价格变更历史
 import waitRelation from './components/tody_income/waitRelation' // 待关联
 import pay1 from './pay1.vue'
 import paysuccess from './components/placeOrder/paysuccess' //支付成功页面
@@ -99,6 +100,10 @@ const routes = [{
 {
   path: '/detail',
   component: detail
+},
+{
+  path: '/payChangeHistory',
+  component: payChangeHistory
 },
 {
   path: '/waitRelation',

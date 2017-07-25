@@ -22,6 +22,96 @@
   </div>
   
 </template>
+
+<script>
+import axios from 'axios'
+import qs from 'qs'
+import { Loading } from 'vux'
+export default {
+  components:{ Loading },
+  props:['order'],
+  data(){
+    return{
+      host:'/huaxinneng/',
+      resoult :'',
+      list:'',
+  //     [{custname:'张三',linkman:'tom',phone:'15011112222',custcode:''},
+  //   {custname:'张三',linkman:'tom',phone:'15011112222',custcode:''},
+  // {custname:'张三',linkman:'tom',phone:'15011112222',custcode:''}],
+      value:'',
+      showloading:false
+
+    }
+  },
+  methods:{
+    search(){
+      let self = this;
+      self.showloading = true;
+      axios.get(''+this.host+'/custom/getCustom',{
+        params:{
+          companyName:this.value
+          }
+        }).then(data => {
+          self.showloading = false;
+          if(data.data.error == '0'){
+          let n = JSON.parse(data.data.errMsg);
+          console.log(n)
+          self.list = n;
+          
+          }else{
+            console.log('调用接口失败')
+          }
+        })
+
+    },
+    submit(n){
+      // console.log(n)
+      ///wego168-huaxinneng-wechat/custom/relation
+      console.log(n)
+      let self = this;
+      self.showloading = true;
+      let list = qs.stringify({//组合数据
+        id:self.order.id,
+        custCode:n.custcode,
+        custCodeName: n.custname,
+        verify:self.order.verifyStatus
+      })
+      axios.post( this.host + '/custom/relation',list,{//发起请求
+        headers:{
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }).then( data => {
+        self.showloading = false;
+        console.log(data.data)
+        if(data.data.errcode == '1'){
+         self.$vux.toast.show({
+           text:'关联成功'
+         }) 
+         self.$emit('search',n);
+         
+        }else{
+          self.$vux.toast.show({
+            text:'关联失败，请稍后重试',
+            type:'text'
+          })
+        }
+      })
+
+      // this.$emit('search',n);
+    },
+    shutdown(){
+      this.$emit('shutdown')
+    },
+    preventDefault(event){
+      event.preventDefault()
+    }
+  }
+
+
+
+}
+</script>
+
 <style lang="stylus" rel="stylesheet/stylus" scoped>
 @import './../libs/stylus/same.styl'
 @import './../libs/icon/iconfont.css'
@@ -137,98 +227,5 @@
     color: #ccc;
     width: 67px;
     height: 63px;
-
-
-
-
-
 </style>
 
-
-<script>
-import axios from 'axios'
-import qs from 'qs'
-import { Loading } from 'vux'
-export default {
-  components:{ Loading },
-  props:['order'],
-  data(){
-    return{
-      host:'/huaxinneng/',
-      resoult :'',
-      list:'',
-  //     [{custname:'张三',linkman:'tom',phone:'15011112222',custcode:''},
-  //   {custname:'张三',linkman:'tom',phone:'15011112222',custcode:''},
-  // {custname:'张三',linkman:'tom',phone:'15011112222',custcode:''}],
-      value:'',
-      showloading:false
-
-    }
-  },
-  methods:{
-    search(){
-      let self = this;
-      self.showloading = true;
-      axios.get(''+this.host+'/custom/getCustom',{
-        params:{
-          companyName:this.value
-          }
-        }).then(data => {
-          self.showloading = false;
-          if(data.data.error == '0'){
-          let n = JSON.parse(data.data.errMsg);
-          console.log(n)
-          self.list = n;
-          
-          }else{
-            console.log('调用接口失败')
-          }
-        })
-
-    },
-    submit(n){
-      // console.log(n)
-      ///wego168-huaxinneng-wechat/custom/relation
-      console.log(n)
-      let self = this;
-      self.showloading = true;
-      let list = qs.stringify({//组合数据
-        id:self.order.id,
-        custCode:n.custcode,
-        verify:self.order.verifyStatus
-      })
-      axios.post( this.host + '/custom/relation',list,{//发起请求
-        headers:{
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }).then( data => {
-        self.showloading = false;
-        console.log(data.data)
-        if(data.data.errcode == '1'){
-         self.$vux.toast.show({
-           text:'关联成功'
-         }) 
-         self.$emit('search',n);
-         
-        }else{
-          self.$vux.toast.show({
-            text:'关联失败，请稍后重试',
-            type:'text'
-          })
-        }
-      })
-
-      // this.$emit('search',n);
-    },
-    shutdown(){
-      this.$emit('shutdown')
-    },
-    preventDefault(event){
-      event.preventDefault()
-    }
-  }
-
-
-
-}
-</script>

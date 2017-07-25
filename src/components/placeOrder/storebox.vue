@@ -53,6 +53,7 @@ export default {
   },
   methods:{
       search(){
+        localStorage.clear()
           this.showloading = true;
           let self = this;
           self.list = [];
@@ -80,6 +81,7 @@ export default {
             this.title = name.custname;
           this.$emit('search',name);
           this.isshow = false
+          localStorage.clear()
       },
        preventDefault(event){//阻止滑动底层跟着动
       event.preventDefault()
