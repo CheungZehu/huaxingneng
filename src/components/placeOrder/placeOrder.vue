@@ -7,14 +7,15 @@
           <option value="" class="placeholder">{{merchant.placeholder}}</option>
           <option v-for="n in merchant.options" v-bind:value="n">{{n.custname}}</option>
         </select>--> 
-        <selectbox class="searchBox" v-on:search="search" :name="this.merchant.custname"></selectbox>
+        <selectbox class="searchBox" v-on:search="search" :name="this.merchant.custname" ></selectbox>
     <!--     <selectbox class="searchBox" v-on:search="search" v-if="!merchant.custname"></selectbox>
         <input type="text" v-model="merchant.custname" :placeholder="merchant.placeholder" @click="isShow"> -->
       </li>
       <li>
         <span class="order_title">{{store.title}}</span>
-        {{merchant.deptNoName!=''?merchant.deptNoName:showSearchStore()}}
-        <storebox class="searchBox" v-on:search="searchStore" v-show="store.show" :store="this.merchant.deptNoName"></storebox>
+        <!-- {{merchant.deptNoName!=''?merchant.deptNoName:showSearchStore()}} -->
+        <!-- <storebox class="searchBox" v-on:search="searchStore" v-show="store.show" :store="this.merchant.deptNoName"></storebox> -->
+        <storebox class="searchBox" v-on:searchStore="searchStore" :store="merchant.deptNoName"></storebox>
         
       </li>
       <li>
@@ -74,6 +75,10 @@
       <li class="merchan_title">{{merchantInfo.title}}</li>
       <li>
         <ul>
+          <li>
+            <span>{{merchantInfo.custcode.title}}</span>：
+            <span>{{merchantInfo.custcode.value}}</span>
+          </li>
           <li>
             <span>{{merchantInfo.customerKind.title}}</span>：
             <span>{{merchantInfo.customerKind.value}}</span>
@@ -152,7 +157,20 @@ methods:{
       // selltype:this.merchant.selltype.substr(0,2),//销售类型
       selltype:this.merchant.selltype,//销售类型
       // selltype:this.list.selltype,
-      totalprice:this.tatol_price //总价
+      totalprice:this.tatol_price, //总价
+      web_code: this.merchant.web_code,
+      dayNum: 0
+    }
+
+    if (this.metering.value == '0') {
+      data_obj.sumWeight = ''
+    }
+    if (this.time.day == '今天') {
+      data_obj.dayNum = 0
+    } else if (this.time.day == '明天') {
+      data_obj.dayNum = -1
+    } else if (this.time.day == '后天') {
+      data_obj.dayNum  = -2
     }
 
     if (!data_obj.custNo) {
@@ -167,9 +185,21 @@ methods:{
         type:'text'
       })
       return
+    } else if (!data_obj.deptNoName) {
+      self.$vux.toast.show({
+        text:'请选择门店',
+        type:'text'
+      })
+      return
     }else if(!data_obj.bottType){
       self.$vux.toast.show({
         text:'请选择规格',
+        type:'text'
+      })
+      return
+    } else if (!data_obj.unitPrice) {
+      self.$vux.toast.show({
+        text:'请填写单价',
         type:'text'
       })
       return
@@ -191,15 +221,53 @@ methods:{
         type:'text'
       })
       return
+    // } else if (this.metering.value === '1' && this.unitStatus) {
+    } else if (this.metering.value === '1') {
+      console.log('web_code')
+      console.log(this.merchant.web_code)
+      if (this.merchant.web_code) {
+        let params = { webCode: this.merchant.web_code, dayNum: data_obj.dayNum }
+        axios.post(this.host + '/custOrder/getWebPrice', qs.stringify(params)).then(res => {
+          console.log('web_code')
+          console.log(res.data)
+          if (res.data.error == '-1') {
+              self.$vux.toast.show({
+              text:'网价未出，不能下单',
+              type:'text'
+            })
+          } else {
+            console.log('list' + this.list.cardNo)
+            console.log('merchant' + this.merchant.custNo)
+            localStorage.setItem('order_list',JSON.stringify(data_obj));
+            console.log('placeOrder提交订单')
+            console.log(data_obj)
+            this.$router.push('sureOrder');
+          }
+        })
+          
+      } else {
+        self.$vux.toast.show({
+          text:'获取不到网站代码，不能下单',
+          type:'text'
+        })
+      }
+    } else if (this.metering.value === '0') {
+      console.log('list' + this.list.cardNo)
+      console.log('merchant' + this.merchant.custNo)
+      localStorage.setItem('order_list',JSON.stringify(data_obj));
+      console.log('placeOrder提交订单')
+      console.log(data_obj)
+      this.$router.push('sureOrder');
     }
     
+
     // this.list.cardNo : this.merchant.custNo
-    console.log('list' + this.list.cardNo)
-    console.log('merchant' + this.merchant.custNo)
-    localStorage.setItem('order_list',JSON.stringify(data_obj));
-    console.log('placeOrder提交订单')
-    console.log(data_obj)
-    this.$router.push('sureOrder');
+    // console.log('list' + this.list.cardNo)
+    // console.log('merchant' + this.merchant.custNo)
+    // localStorage.setItem('order_list',JSON.stringify(data_obj));
+    // console.log('placeOrder提交订单')
+    // console.log(data_obj)
+    // this.$router.push('sureOrder');
   },
 
   isShow() {
@@ -237,11 +305,10 @@ methods:{
       dayNum: number,
       floor: this.address.floor
     }
-    let isTrue = false
-    if (_data.unit && _data.cardNo && _data.custBottype && _data.dayNum && _data.floor) {
-      isTrue = true
-    }
-    console.log('是否' + isTrue)
+    // let isTrue = false
+    // if (_data.unit && _data.cardNo && _data.custBottype && _data.dayNum && _data.floor) {
+    //   isTrue = true
+    // }
     // if (isTrue) {
     _data = qs.stringify(_data)
     // console.log(_data)
@@ -257,7 +324,12 @@ methods:{
       if(data.data.error == '0'){
         this.price.value = data.data.errMsg;
         this.priceValue = false
-      }else if (data.data.error == '4004') {
+        this.unitStatus = false
+        if (data.data.errMsg == 0) {
+          this.priceValue = true
+        }
+      }else if (data.data.error == '4004' || data.data.error == '4003') {
+        this.unitStatus = true
         this.priceValue = true
           self.price.value = '';
           self.$vux.toast.show({
@@ -375,6 +447,10 @@ methods:{
 
  // 将数据放入
  search(val){
+  // if (this.merchant) {
+  //   this.merchant = null
+  // }
+  // this.merchant = {}
    this.merchant = val;
    this.merchant.custtype = this.merchant.custtype.replace(/\s+/g,"")
    this.merchant.custNo = this.merchant.custcode
@@ -382,17 +458,34 @@ methods:{
    console.log(this.merchant)
  },
  //如果没有门店，显示搜索框
-  showSearchStore(){
-    this.store.show = true;
-    return ''
- },
+ //  showSearchStore(){
+ //    this.store.show = true;
+ //    return ''
+ // },
+ 
  // 门店搜索结果
  searchStore(val){
-  this.merchant.deptnoname = val.deptnoname;
-  this.store.show = false;
- }
+  console.log('门店')
+  // debugger
+  // this.merchant.deptNoName = ''
+  this.merchant.deptNoName = val.deptName;
+  this.merchant.deptno = val.deptNo
+  // this.store.show = false;
+  console.log(this.merchant)
+  // this.depo.name = val.deptName;
+  // this.depo.no = val.deptNo
+ },
+
+ searchname (val) {
+  console.log('searchname')
+  console.log(val.deptNoName)
+  // this.merchant.deptNoName = val.deptNoName;
+  // this.merchant.deptno = val.deptno
+ },
 },
 created(){
+  // console.log('merchant')
+  // console.log(this.merchant)
 
   //获取规格
   this.show = true;
@@ -443,10 +536,18 @@ created(){
     this.list = JSON.parse(localStorage.getItem('order_list'))
     console.log('list')
     console.log(this.list)
-    this.merchant.deptNoName = this.list.deptNoName
+    
     this.merchant.custname = this.list.company
 
+    this.merchant.deptNoName = this.list.deptNoName
     this.merchant.deptno = this.list.deptNo
+    this.merchant.web_code = this.list.web_code
+
+    // this.merchant.deptNoName = this.merchant.deptNoName || this.list.deptNoName
+    // this.merchant.deptno = this.merchant.deptno || this.list.deptNo
+
+    console.log('merchant')
+    console.log(this.merchant)
     
     this.price.value = this.unitPrice
 
@@ -454,7 +555,7 @@ created(){
       this.metering.value = this.list.unit
     }
     
-    if (this.list.sumWeight !== 0) {
+    if (this.list.sumWeight !== 0 || this.list.sumWeight !== '' || this.list.sumWeight !== null) {
       this.weight.value = this.list.sumWeight
     }
 
@@ -489,35 +590,35 @@ created(){
     let custType = this.list.custType
     // this.merchantInfo.customerKind.value = this.list.custType == '01' ? '工商业客户' : '工业客户'
     this.merchant.custtype = this.list.custType
-
+    this.merchantInfo.custcode.value = this.list.cardNo
     console.log(this.list.custType)
     if (typeof(this.list.custType) === 'number') {
       switch (this.list.custType) {
-        case 1:
+        case 0:
           this.merchantInfo.customerKind.value = '民用';
           break;
-        case 2:
+        case 1:
           this.merchantInfo.customerKind.value = '商用';
           break;
-        case 3:
+        case 2:
           this.merchantInfo.customerKind.value = '工业';
           break;
-        case 4:
+        case 3:
           this.merchantInfo.customerKind.value = '批发';
           break;
       } 
     } else {
       switch (this.list.custType) {
-        case '1':
+        case '0':
           this.merchantInfo.customerKind.value = '民用';
           break;
-        case '2':
+        case '1':
           this.merchantInfo.customerKind.value = '商用';
           break;
-        case '3':
+        case '2':
           this.merchantInfo.customerKind.value = '工业';
           break;
-        case '4':
+        case '3':
           this.merchantInfo.customerKind.value = '批发';
           break;
       } 
@@ -590,6 +691,10 @@ created(){
   }, 0)
   // this.hoursPick();
 
+  // this.merchant.deptNoName = this.deptNoName1
+  // this.merchant.deptno = this.deptno1
+  console.log('merchant_local')
+  console.log(this.merchant)
 
   if (this.list.time) {
     let time = this.list.time.split(':')[0]
@@ -626,29 +731,35 @@ created(){
   }
   
   console.log(this.time.hour)
+  console.log('merchant_local')
+  console.log(this.merchant)
 
 },
 watch:{
-  merchant:{
-    handler:function(){
-      // console.log("获取工商客户资料")
-      // console.log(this.merchant,'获取工商客户资料')
+  'merchant.deptNoName' (val) {
+    console.log('deptNoName')
+    console.log(val)
+  },
+  'merchant.custname' (val) {
+  // merchant:{
+  //   handler:function(){
       let self = this;
       //客户资料
+      self.merchantInfo.custcode.value = self.merchant.custcode
       self.merchantInfo.contact.value = self.merchant.linkman;
       //客户性质
       // switch (this.merchant.custtype.substr(0,2)) {
       switch (this.merchant.custtype) {
-        case '1':
+        case '0':
           self.merchantInfo.customerKind.value = '民用';
           break;
-        case '2':
+        case '1':
           self.merchantInfo.customerKind.value = '商用';
           break;
-        case '3':
+        case '2':
           self.merchantInfo.customerKind.value = '工业';
           break;
-        case '4':
+        case '3':
           self.merchantInfo.customerKind.value = '批发';
           break;
       } 
@@ -702,7 +813,7 @@ watch:{
         }
       })
 
-      if(this.size.value && this.merchant && this.metering){
+      if(this.size.value && this.merchant.custname && this.metering){
           if (this.time.day == '今天') {
             console.log('资料')
             this.getPrice(0)
@@ -728,57 +839,72 @@ watch:{
       this.number.value = '';
       this.weight.value = '';
         // }
-    },
-    deep:true    
+    // },
+    // deep:true    
   },
   metering:{
-    handler(){
-      if(this.size.value && this.merchant){
-          if (this.time.day == '今天') {
-            console.log('计量单位')
-            if (this.metering.value === '1' && this.number.value) {
-              this.getToatalWeight()
+    handler(nVal, oVal){
+      // if (nVal !== oVal) {
+        if(this.size.value && this.merchant.custname){
+            if (this.time.day == '今天') {
+              console.log('计量单位')
+              if (this.metering.value === '1') {
+                this.getPrice(0)
+                if (this.number.value) {
+                  this.getToatalWeight()
+                 
+                } 
+                // else {
+                  // this.getPrice(0)
+                // }
+                
+              } else if (this.metering.value === '0') {
+                this.getPrice(0)
+              }
+              // this.getPrice(0)
+              // if (this.price.value) {
+              if (this.price.value && this.number.value) {
+                this.getTotalPrice(0)
+              }
+            } else if (this.time.day == '明天') {
+              console.log('计量单位')
+              if (this.metering.value === '1') {
+                // this.getToatalWeight()
+                this.getPrice(-1)
+                if (this.number.value) {
+                  this.getToatalWeight()
+                 
+                } 
+              } else if (this.metering.value === '0') {
+                this.getPrice(-1)
+              }
+              // this.getPrice(-1)
+              // if (this.price.value) {
+              if (this.price.value && this.number.value) {
+                this.getTotalPrice(-1)
+              }
+              // this.getTotalPrice(-1)
             } else {
-              this.getPrice(0)
+              console.log('计量单位')
+              if (this.metering.value === '1') {
+                this.getPrice(-2)
+                if (this.number.value) {
+                  this.getToatalWeight()
+                }
+                this.getToatalWeight()
+              } else if (this.metering.value === '0') {
+                this.getPrice(-2)
+              }
+              // this.getPrice(-2)
+              // if (this.price.value) {
+              if (this.price.value && this.number.value) {
+                this.getTotalPrice(-2)
+              }
+              // this.getTotalPrice(-2)
             }
-            // this.getPrice(0)
-            if (this.price.value) {
-              this.getTotalPrice(0)
-            }
-            // this.getTotalPrice(0)
-            // let nowDate = new Date()
-            // let hour = nowDate.getHours();
-            // let ohour = this.time.hour.split(':')[0]
-            // if (hour > ohour) {
-            //   this.time.hour = ''
-            // }
-          } else if (this.time.day == '明天') {
-            console.log('计量单位')
-            if (this.metering.value === '1' && this.number.value) {
-              this.getToatalWeight()
-            } else {
-              this.getPrice(-1)
-            }
-            // this.getPrice(-1)
-            if (this.price.value) {
-              this.getTotalPrice(-1)
-            }
-            // this.getTotalPrice(-1)
-          } else {
-            console.log('计量单位')
-            if (this.metering.value === '1' && this.number.value) {
-              this.getToatalWeight()
-            } else {
-              this.getPrice(-2)
-            }
-            // this.getPrice(-2)
-            if (this.price.value) {
-              this.getTotalPrice(-2)
-            }
-            // this.getTotalPrice(-2)
-          }
+          // }
+            
         // }
-          
       }
     },
     deep:true
@@ -792,7 +918,7 @@ watch:{
       if (this.metering.value && this.merchant && this.size.value && this.address.value) {
         // setTimeout(() => {
           if (this.time.day == '今天') {
-            console.log('单价')
+            // console.log('单价')
             // this.getPrice(0)
             this.getTotalPrice(0)
             // let nowDate = new Date()
@@ -802,11 +928,11 @@ watch:{
             //   this.time.hour = ''
             // }
           } else if (this.time.day == '明天') {
-            console.log('单价')
+            // console.log('单价')
             // this.getPrice(-1)
             this.getTotalPrice(-1)
           } else {
-            console.log('单价')
+            // console.log('单价')
             // this.getPrice(-2)
             this.getTotalPrice(-2)
           }
@@ -832,21 +958,15 @@ watch:{
         // if (this.list) {
           if (this.time.day == '今天') {
             console.log('规格')
-
-            // if (this.metering.value === '1') {
-            //   if (!this.price.value) {
-            //     this.getPrice(0)
-            //   }
-            //   if (this.number.value) {
-            //     this.getToatalWeight()
-            //   }
-            // } else {
-            //   this.getPrice(0)
-            // }
-
-
-            if (this.metering.value === '1' && this.number.value) {
-              this.getToatalWeight()
+            // if (this.metering.value === '1' && this.number.value) {
+            if (this.metering.value === '1') {
+              if (this.number.value) {
+                this.getToatalWeight()
+              }
+              // this.getToatalWeight()
+              if (this.price.value === '' || this.price.value === null || this.price.value === undefined) {
+                this.getPrice(0)
+              }
               // this.getPrice(0)
             } else if (this.metering.value === '0') {
               this.getPrice(0)
@@ -864,9 +984,14 @@ watch:{
             // }
           } else if (this.time.day == '明天') {
             console.log('规格')
-            if (this.metering.value === '1' && this.number.value) {
-              this.getToatalWeight()
-              // this.getPrice(0)
+            // if (this.metering.value === '1' && this.number.value) {
+            if (this.metering.value === '1') {
+              if (this.number.value) {
+                this.getToatalWeight()
+              }
+              if (this.price.value === '' || this.price.value === null || this.price.value === undefined) {
+                this.getPrice(-1)
+              }
             } else if (this.metering.value === '0') {
               this.getPrice(-1)
             }
@@ -877,7 +1002,13 @@ watch:{
           } else {
             console.log('规格')
             if (this.metering.value === '1' && this.number.value) {
-              this.getToatalWeight()
+              if (this.number.value) {
+                this.getToatalWeight()
+              }
+              // this.getToatalWeight()
+              if (this.price.value === '' || this.price.value === null || this.price.value === undefined) {
+                this.getPrice(-2)
+              }
             } else if (this.metering.value === '0') {
               this.getPrice(-2)
             }
@@ -920,6 +1051,9 @@ watch:{
           console.log('数量')
           this.getTotalPrice(-2)
         }
+      }
+      if (this.number.value === '') {
+        this.weight.value = null
       }
     },
     deep:true
@@ -1066,41 +1200,30 @@ watch:{
   'time.hour' () {
     // console.log(this.time.hour)
     // alert(val)
-    // if (this.time.day == '今天') {
+    if (this.time.day == '今天') {
 
-    //   let nowDate = new Date()
-    //   let hour = nowDate.getHours();
-    //   let ohour = this.time.hour.split(':')[0]
-    //   console.log(hour)
-    //   console.log(hour >= parseInt(ohour))
-    //   if (hour > ohour) {
-    //     this.time.hour = ''
-    //     if (hour < 16) {
-    //       for (var i = 0; i < this.time.hours.length; i++) {
-    //         if (parseInt(this.time.hours[i].value) == hour) {
-    //           this.time.hour = this.time.hours[i].key
-    //           // console.log(parseInt(this.time.hours[i].value))
-    //           return false
-    //         }
-    //       }
-    //     } else {
-    //       this.$vux.toast.show({
-    //         text:'今天送气时间已过，请重新选择',
-    //         type:'text'
-    //       })
-    //       // return false
-    //       this.time.day = '明天'
-    //       this.time.hour = this.time.hours[0].key
-    //     }
-    //   }
-    // }
-    if (this.time.day == '明天') {
-      // if (!this.list.time) {
-        // this.time.hour = this.time.hours[0].key
-      // }
-      
+      let nowDate = new Date()
+      let hour = nowDate.getHours();
+      let ohour = this.time.hour.split(':')[0]
+      // console.log(hour)
+      // console.log(hour >= parseInt(ohour))
+      if (hour > ohour) {
+        // this.time.hour = ''
+        if (hour < 16) {
+          for (var i = 0; i < this.time.hours.length; i++) {
+            if (parseInt(this.time.hours[i].value) == hour) {
+              this.time.hour = this.time.hours[i].key
+              // console.log(parseInt(this.time.hours[i].value))
+              return false
+            }
+          }
+        }
+      }
     }
-  }
+    if (this.time.day == '明天') {
+
+    }
+  },
 
 
   // if (this.time.day == '今天') {
@@ -1151,49 +1274,52 @@ watch:{
 },
   data(){
     return {
+      
+      unitStatus: false,
       sizes: [],
       priceValue: true,
       host:'/huaxinneng/',
       list: {},
       custcode: '',
-      merchant:{
-        title:'商户选择',
-        placeholder:'请选择商户',
-        options:[{
-            "areaid": "01  ", 
-            "bank": "", 
-            "bankno": "", 
-            "busidate": "", 
-            "closedate": "", 
-            // "custcode": "230919", 
-            "custdegree": "", 
-            "custname": "东方彩制衣厂", 
-            "custtype": "1", 
-            "department": "新风", 
-            "electrograph": "", 
-            "favdate": "", 
-            "favorable": 0, 
-            "invoicetitle": "04", 
-            "invoicetype": "1", 
-            "linkaddr1": "", 
-            "linkaddr2": "", 
-            "linkman": "黎燕清", 
-            "memo": "", 
-            "mobiletel": "", 
-            "openacc": "2", 
-            "opendate": "2017-05-09 00:00:00", 
-            "priceview": "", 
-            "regaddr": "文华制衣城3座3楼东方彩制衣厂", 
-            "selltype": "", 
-            "staff": "杨彩谊", 
-            "stoptype": "", 
-            "usetype": "1   ", 
-            "webcode": "", 
-            "webupprice": 0, 
-            "worktel": "83279783"
-        }],
-        value:''
-      },
+      // merchant:{
+      //   title:'商户选择',
+      //   placeholder:'请选择商户',
+      //   options:[{
+      //       "areaid": "01  ", 
+      //       "bank": "", 
+      //       "bankno": "", 
+      //       "busidate": "", 
+      //       "closedate": "", 
+      //       // "custcode": "230919", 
+      //       "custdegree": "", 
+      //       "custname": "东方彩制衣厂", 
+      //       "custtype": "1", 
+      //       "department": "新风", 
+      //       "electrograph": "", 
+      //       "favdate": "", 
+      //       "favorable": 0, 
+      //       "invoicetitle": "04", 
+      //       "invoicetype": "1", 
+      //       "linkaddr1": "", 
+      //       "linkaddr2": "", 
+      //       "linkman": "黎燕清", 
+      //       "memo": "", 
+      //       "mobiletel": "", 
+      //       "openacc": "2", 
+      //       "opendate": "2017-05-09 00:00:00", 
+      //       "priceview": "", 
+      //       "regaddr": "文华制衣城3座3楼东方彩制衣厂", 
+      //       "selltype": "", 
+      //       "staff": "杨彩谊", 
+      //       "stoptype": "", 
+      //       "usetype": "1   ", 
+      //       "webcode": "", 
+      //       "webupprice": 0, 
+      //       "worktel": "83279783"
+      //   }],
+      //   value:''
+      // },
+      merchant: {},
       store:{
         title:'门店选择',
         show:false,
@@ -1235,7 +1361,8 @@ watch:{
         day:'今天',
         hour:'',
         days:[{key:'今天',value:'today',disabled:false},{key:'明天',value:'tomorrow',disabled:false},{key:'后天',value:'aftertomorrow',disabled:false}],
-        hours:[{key:'09:00-11:00',value:'9',disabled:false},{key:'10:00-12:00',value:'10',disabled:false},{key:'11:00-13:00',value:'11',disabled:false},{key:'14:00-16:00',value:'14',disabled:false},{key:'15:00-17:00',value:'15',disabled:false},{key:'16:00-18:00',value:'16',disabled:false}]
+        hours:[{key:'07:00-09:00',value:'7',disabled:false},{key:'09:00-11:00',value:'9',disabled:false},{key:'10:00-12:00',value:'10',disabled:false},{key:'11:00-13:00',value:'11',disabled:false},{key:'13:00-15:00',value:'13',disabled:false},{key:'14:00-16:00',value:'14',disabled:false},{key:'15:00-17:00',value:'15',disabled:false},{key:'16:00-18:00',value:'16',disabled:false}]
+        // hours:[{key:'09:00-11:00',value:'9',disabled:false},{key:'10:00-12:00',value:'10',disabled:false},{key:'11:00-13:00',value:'11',disabled:false},{key:'14:00-16:00',value:'14',disabled:false},{key:'15:00-17:00',value:'15',disabled:false},{key:'16:00-18:00',value:'16',disabled:false}]
       },
       remark:{
         title:'备注',
@@ -1244,6 +1371,10 @@ watch:{
       },
       merchantInfo:{ // 商户信息
         title:'商户信息',
+        custcode: {
+          title: '客户编号',
+          value: ''
+        },
         customerKind:{
           title:'客户性质',
           value:''

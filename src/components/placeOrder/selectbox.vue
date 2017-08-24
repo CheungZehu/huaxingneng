@@ -16,6 +16,8 @@
                     <li v-for="n in list">
                     <div>
                         <span>{{n.custname}}</span>
+                        <span>编号：{{n.custcode}}</span>
+                        <span>地址：{{n.address}}</span>
                     </div>
                     <button type="button" name="button" @click="submit(n)">确定</button>
                     </li>
@@ -40,6 +42,7 @@ export default {
   data () {
     return {
       host:'/huaxinneng/',
+      otype: '',
       isshow:false,
       list:[
           ],
@@ -52,21 +55,35 @@ export default {
   created () {
     // console.log(this.name)
     this.title = this.name === undefined ? '请输入商户名称' : this.name
+    this.getUser()
   },
   methods:{
+      getUser () {
+        axios.get(''+this.host+'/userInfo/getMyInfoExternal').then(data => {
+          if(data.data.error=='0') {
+            if (/ /.test(data.data.errMsg.otype)) {
+              this.otype = data.data.errMsg.otype.replace(/(^\s+)|(\s+$)/g, "");
+            } else {
+              this.otype = data.data.errMsg.otype
+            }
+          }
+        })
+      },
       search(){
           this.showloading = true;
           let self = this;
           self.list = [];
+          let otype = localStorage.getItem('otype')
           let list = qs.stringify({
-              name:self.value
+              name:self.value,
+              otype: this.otype
           })
           axios.post(this.host + 'custOrder/custList',list,{
               headers:{
                 'Content-Type': 'application/x-www-form-urlencoded'
               }
           }).then( data => {
-              // console.log(data.data)
+              console.log(data.data)
              
           this.showloading = false;
           if(data.data.error == '0'){
@@ -82,6 +99,10 @@ export default {
           this.title = name.custname;
           this.$emit('search',name);
           this.isshow = false
+          // if (name.deptNoName != '') {
+          //   this.$emit('searchname', name)
+          // }
+          // this.$emit('searchname', name)
       },
       shutdown(){
         this.isshow = false;
@@ -187,7 +208,7 @@ export default {
     flex-direction:column
     background:#f2f3f8
     li
-      flex:0 0 half(191)
+      flex:0 0 half(230)
       display:flex
       align-items:center
       border-bottom:1px solid #fff
@@ -199,12 +220,15 @@ export default {
         span
           flex:1
           color:#666666
+          line-height:22px
         span:first-child
           font-size:16px
           color:#333333
+          padding-bottom:4px
+          
         span:nth-child(2),span:nth-child(3)
           display:flex
-          text-align-last: justify;
+          
           span:first-child
             flex:0 0 60px
             margin-right:5px

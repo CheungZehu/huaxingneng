@@ -23,7 +23,7 @@ module.exports = {
   },
   dev: {
     env: require('./dev.env'),
-    port: 8080,
+    port: 9090,
     autoOpenBrowser: true,
     assetsSubDirectory: 'static',
     assetsPublicPath: '/',
@@ -42,6 +42,7 @@ module.exports = {
       '/huaxinneng/': {
         // target:'http://192.168.1.98:8080/totoropay-admin/',
         target:'http://hxn.wego168.com/huaxinneng/',
+        // target: 'http://hxn.wego168.com/exhuaxinneng/',
         // target:'http://192.168.1.79:8080/wego168-huaxinneng-wechat',
         // target:'http://192.168.1.67:8080/wego168-huaxinneng-wechat',
         changeOrigin:true,

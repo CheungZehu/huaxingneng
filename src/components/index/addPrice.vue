@@ -6,7 +6,7 @@
 
     </p>
     <div class="middleBox">
-      <ul class="list">
+    <!--   <ul class="list">
         <li v-for="n in list">
           <div class="icon_box">
             <span></span>
@@ -16,27 +16,35 @@
             <p>{{n.web_name}}</p>
           </div>
         </li>
-      </ul>
+      </ul> -->
+      <group v-if="list" class="list">
+        <x-switch class="icon_box" v-for="n in list" :key="n" :title="n.web_price" :inline-desc="n.web_name" v-model="n.status" disabled>
+        </x-switch>
+      </group>
     </div>
-        <div v-for="(m,k) in list2">
-           <p class="title">执行日期：<span>{{m[0].executedate.substr(0,10)}}</span>
-           <span class="radio" v-bind:class="{active:(k == clickIndex)}" @click="click(m,k)"></span>
-           <input type="radio"  name="radio" hidden="hidden" :value="doTime" v-model="radio">
-           </p>
-            <div class="middleBox">
-              <ul class="list">
-                <li v-for="n in m">
-                  <div class="icon_box">
-                    <span></span>
-                  </div>
-                  <div>
-                    <p>￥{{n.web_price}}</p>
-                    <p>{{n.web_name}}</p>
-                  </div>
-                </li>
-              </ul>
-            </div> 
-         </div>     
+    <div v-for="(m,k) in list2">
+       <p class="title">执行日期：<span>{{m[0].executedate.substr(0,10)}}</span>
+       <span class="radio" v-bind:class="{active:(k == clickIndex)}" @click="click(m,k)"></span>
+       <input type="radio"  name="radio" hidden="hidden" :value="doTime" v-model="radio">
+       </p>
+        <div class="middleBox">
+          <!-- <ul class="list">
+            <li v-for="n in m">
+              <div class="icon_box">
+                <span></span>
+              </div>
+              <div>
+                <p>￥{{n.web_price}}</p>
+                <p>{{n.web_name}}</p>
+              </div>
+            </li>
+          </ul> -->
+          <group class="list">
+            <x-switch class="icon_box" v-for="n in m" :key="n" :title="n.web_price" :inline-desc="n.web_name" v-model="n.status" disabled>
+            </x-switch>
+          </group>
+        </div> 
+     </div>     
     </div>
     <div class="bottomBox">
       <button @click="routerToChengePrice" >录入</button>
@@ -48,11 +56,11 @@
 
 
 <script>
-import { Search , Checker , Loading} from 'vux'
+import { Search , Checker , Loading, Group, XSwitch} from 'vux'
 import { mapState } from 'vuex'
 import axios from 'axios'
 export default {
-  components:{ Search , Checker , Loading},
+  components:{ Search , Checker , Loading, Group, XSwitch},
   data(){
     return{
       host:'/huaxinneng/',
@@ -130,6 +138,10 @@ export default {
         let data_ = data.data.errMsg;
         data_ = JSON.parse(data_);
         self.list = data_;
+        console.log(self.list)
+        self.list.map(item => {
+          item.status = item.auditflag == '1' ? true : false
+        })
         // console.log(data_[0].executedate)
         // let dotime = new Date(data_[0].executedate);
         this.doTime = data_[0].executedate.substr(0,10);
@@ -142,7 +154,7 @@ export default {
       if(data.data.errcode == '0'){
         // console.log('999')
         let _date = JSON.parse(data.data.errMsg);
-        console.log(_date)
+        // console.log(_date)
         let k={};
         let t = 0;// 有多少天的数据
         for(let i = 0; i < _date.length ; i ++){
@@ -158,9 +170,13 @@ export default {
           }
           t++;
         }
-        
-        
-        console.log(self.list2)
+        self.list2.map(item => {
+          item.map(item => {
+            item.status = item.auditflag == '1' ? true : false
+          })
+        })
+        // console.log('list2')
+        // console.log(self.list2)
         localStorage.setItem('update_webprice',JSON.stringify(self.list2[0]))
       }else if(data.data.errcode == '-4'){
         self.isdisabled = true;
@@ -218,7 +234,19 @@ export default {
   background:#fff
   display:flex
   flex-direction:column
-  padding:0 15px
+.vux-x-switch.weui-cell_switch
+  padding-left:50px
+.icon_box:after
+    content:"\e616"
+    font-family:"iconfont" !important;
+    font-size:23px;
+    font-style:normal;
+    color:$color
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height:70px
+    position:absolute
+    left:10px
   li
     flex:1
     display:flex

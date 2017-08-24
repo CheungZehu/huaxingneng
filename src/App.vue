@@ -53,6 +53,11 @@ body {
 }
 .slide-fade-enter, .slide-fade-leave-active {
   opacity: 0;
-  
+}
+img {
+  transition: all .3s;
+  &:hover {
+    transform: scale(1.2, 1.2);
+  }
 }
 </style>

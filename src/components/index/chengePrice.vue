@@ -94,7 +94,7 @@ export default {
     console.log(this.list)
     let date = new Date();
     // this.doTime = new Date().toLocaleDateString();
-    date = date.setDate(date.getDate()+1);
+    date = date.setDate(date.getDate());
     // this.doTime = new Date(date).toLocaleDateString()
     
     // if(this.isUpdateWebPrice){

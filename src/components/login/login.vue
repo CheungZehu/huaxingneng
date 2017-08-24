@@ -39,6 +39,9 @@ export default {
     // console.log(document.getElementsByClassName('login_box')[0].offsetHeight)
     document.getElementsByClassName('login_box')[0].style.height = document.getElementsByClassName('login_box')[0].offsetHeight + 'px';
   },
+  created () {
+    // this.configWxSdk()
+  },
   methods:{
     check(){
       let reg =  /^1[34578]\d{9}$/;
@@ -106,7 +109,50 @@ export default {
          type:'warn'
         })
       }
-    }
+    },
+    loadJsapiTicketSign (jsApiList) {
+      let signUrl = location.href.split('#')[0]
+      axios.post('http://hxn.wego168.com/exhuaxinneng/wechat/Member!loadJsapiTicketSign.action', qs.stringify({ url: signUrl })).then(res => {
+        this.configApiList(res.data, jsApiList)
+        console.log(res.data)
+      })
+     },
+     configWxSdk() {
+      this.$wechat.ready(() => {
+        console.log('wechat ready')
+
+        let dataForWeixin = {
+          title: '华信能',
+          desc: '华信能液化石油气',
+          link: 'http://hxn.wego168.com/huaxinneng/authInfo/user/accredit',
+          imgUrl: 'http://hxn.wego168.com/service3/upload/exhuaxinneng/img/1b5af16497f4432ab17f3e6a6ee96be1.jpg',
+          success: () => {
+
+          },
+          cancel: () => {
+
+          }
+        }
+
+        this.$wechat.onMenuShareAppMessage(dataForWeixin)
+        this.$wechat.onMenuShareTimeline(dataForWeixin)
+      })
+      this.$wechat.error(() => {
+        // alert('失败')
+      })
+      let jsApiList = ['onMenuShareAppMessage', 'onMenuShareTimeline']
+      this.loadJsapiTicketSign(jsApiList)
+     },
+     configApiList(obj, jsApiList) {
+      this.$wechat.config({
+        debug: false,
+        appId: obj.appId,
+        timestamp: obj.timestamp,
+        nonceStr: obj.nonceStr,
+        signature: obj.signature,
+        jsApiList: jsApiList
+      })
+     }
   }
 }
 </script>

@@ -5,7 +5,7 @@
       <span>行业网价</span>
     </div>
     <p class="title" v-if="!none">执行日期：<span>{{doTime}}</span></p>
-    <ul class="list">
+<!--     <ul class="list">
       <li v-for="n in list">
         <div class="icon_box">
           <span></span>
@@ -16,7 +16,11 @@
         </div>
       </li>
       <span style="display:block;text-align:center;padding:10px 0;color:#ccc" v-if="none">暂无数据</span>
-    </ul>
+    </ul> -->
+    <group v-if="list" class="list">
+      <x-switch class="icon_box" v-for="n in list" :key="n" :title="n.web_price" :inline-desc="n.web_name" v-model="n.status" disabled>
+      </x-switch>
+    </group>
   <loading v-model="loading"></loading>
   </div>
 
@@ -72,7 +76,20 @@
   background:#fff
   display:flex
   flex-direction:column
-  padding:0 15px
+
+.vux-x-switch.weui-cell_switch
+  padding-left:50px
+.icon_box:after
+    content:"\e616"
+    font-family:"iconfont" !important;
+    font-size:23px;
+    font-style:normal;
+    color:$color
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height:70px
+    position:absolute
+    left:10px
   li
     flex:1
     display:flex
@@ -112,10 +129,10 @@
 </style>
 
 <script>
-import { Search , Loading} from 'vux'
+import { Search , Loading, Group, XSwitch } from 'vux'
 import axios from 'axios'
 export default {
-  components:{ Search , Loading},
+  components:{ Search , Loading, Group, XSwitch},
   data(){
     return{
       host:'/huaxinneng/',
@@ -146,12 +163,16 @@ export default {
     }, 10000);
     axios.post(this.host + '/userInfo/admin/getPrice').then( data=>{
       if(data.data.errcode == '0'){
-        console.log(data.data)
+        // console.log(data.data)
         
         //  this.doTome = JSON.parse(data.data.data[0].executedate);
         let errMsg = JSON.parse(data.data.errMsg);
         this.doTime = errMsg[0].executedate.substr(0,10);
          this.list = errMsg;
+         console.log(this.list)
+         this.list.map(item => {
+          item.status = item.auditflag == '1' ? true : false
+         })
          self.loading = false;
       }else if(data.data.errcode == '-4'){
         self.none = true;

@@ -48,7 +48,7 @@
          <i class="icon iconfont icon-wodeziliao" ></i>
          <span class="index_list_text">我的资料</span>
        </li>
-       <li class="index_list_li4" @click="router('addPrice')">
+       <li class="index_list_li4" @click="router('addPrice')" v-if="addPrice">
          <i class="icon iconfont icon-wodeziliao" ></i>
          <span class="index_list_text">录入网价</span>
        </li>
@@ -63,6 +63,8 @@
  </template>
  <script>
  import axios from 'axios'
+ import qs from 'qs'
+ import wx from 'weixin-js-sdk'
  import { mapState } from 'vuex'
  import { Loading } from 'vux'
  export default {
@@ -78,14 +80,62 @@
          myorder: '0'
        },
        host:'/huaxinneng/',
-       loading:false
+       loading:false,
+       addPrice: false,
      }
+   },
+   created () {
+    // this.configWxSdk()
    },
    methods:{
      router(r){
        this.$router.push(r)// 路由跳转的方法
        localStorage.clear()
+     },
+     loadJsapiTicketSign (jsApiList) {
+      let signUrl = location.href.split('#')[0]
+      axios.post('http://hxn.wego168.com/exhuaxinneng/wechat/Member!loadJsapiTicketSign.action', qs.stringify({ url: signUrl })).then(res => {
+        this.configApiList(res.data, jsApiList)
+        console.log(res.data)
+      })
+     },
+     configWxSdk() {
+      this.$wechat.ready(() => {
+        console.log('wechat ready')
+
+        let dataForWeixin = {
+          title: '华信能',
+          desc: '华信能液化石油气',
+          link: 'http://hxn.wego168.com/huaxinneng/authInfo/user/accredit',
+          imgUrl: 'http://hxn.wego168.com/service3/upload/exhuaxinneng/img/1b5af16497f4432ab17f3e6a6ee96be1.jpg',
+          success: () => {
+
+          },
+          cancel: () => {
+
+          }
+        }
+
+        this.$wechat.onMenuShareAppMessage(dataForWeixin)
+        this.$wechat.onMenuShareTimeline(dataForWeixin)
+      })
+      this.$wechat.error(() => {
+        // alert('失败')
+      })
+      let jsApiList = ['onMenuShareAppMessage', 'onMenuShareTimeline']
+      this.loadJsapiTicketSign(jsApiList)
+     },
+     configApiList(obj, jsApiList) {
+      this.$wechat.config({
+        debug: false,
+        appId: obj.appId,
+        timestamp: obj.timestamp,
+        nonceStr: obj.nonceStr,
+        signature: obj.signature,
+        jsApiList: jsApiList
+      })
      }
+     
    },
    mounted(){
      //获取今日收款的数额
@@ -117,7 +167,9 @@
           self.salesman.name = content.name;
           self.salesman.src = content.headimgurl;
           params.params.operater=content.id;
-          console.log(params)
+          self.addPrice = content.otype == 0 ? true : false
+          // console.log(content.otype == 1)
+          // console.log(params)
           //  let self = this;
           axios.get(''+this.host+'custom/getMoneyInfo?day=1').then(data => {
             self.salesman.today_income = data.data.money;
@@ -135,10 +187,11 @@
           //    self.salesman.myorder = data.data.order;
           //    self.loading = false;
           //  })
-          axios.post( this.host + '/custOrder/getMyOrderList').then( data => {
-            self.show = false;
-            let list = JSON.parse(data.data.errMsg);
-            self.salesman.myorder = list.length;
+          axios.post( this.host + '/custOrder/getMyOrderNumber').then( data => {
+            console.log(data.data)
+            // self.show = false;
+            // let list = JSON.parse(data.data.errMsg);
+            self.salesman.myorder = data.data.errMsg;
           })
       }
      })

@@ -89,6 +89,7 @@ export default {
       ],
       merchantInfo:[
         {key:'商户名称',value:''},
+        {key:'商户编号',value:''},
         {key:'商户性质',value:''},
         {key:'销售类型',value:''}
       ],
@@ -120,7 +121,8 @@ export default {
       delOrder(){
         let self = this;
         let list = qs.stringify({
-          appser:JSON.parse(localStorage.getItem('order_list')).appSer
+          appser:JSON.parse(localStorage.getItem('order_list')).appSer,
+          status:JSON.parse(localStorage.getItem('order_list')).status,
         });
         // console.log(self.list)
         axios.post(this.host + 'custOrder/updateMyOrderStatus',list,{
@@ -222,6 +224,7 @@ export default {
     }
   },
   mounted(){
+    document.body.scrollTop = 0
     // axios.post(''+this.host+'/custOrder/getStandard').then(data =>{
     //   if(data.data.error == '0'){
     //     this.botttype = data.data.errMsg;
@@ -276,52 +279,52 @@ export default {
     }
 
     self.merchantInfo[0].value = this.list.company;
-
+    self.merchantInfo[1].value = this.list.cardNo
     // self.merchantInfo[1].value = this.list.custType=='01'?'工商业客户':'工业客户';
     if (typeof(this.list.custType) === 'number') {
       switch (this.list.custType) {
+        case 0:
+          self.merchantInfo[2].value = '民用';
+          break;
         case 1:
-          self.merchantInfo[1].value = '民用';
+          self.merchantInfo[2].value = '商用';
           break;
         case 2:
-          self.merchantInfo[1].value = '商用';
+          self.merchantInfo[2].value = '工业';
           break;
         case 3:
-          self.merchantInfo[1].value = '工业';
-          break;
-        case 4:
-          self.merchantInfo[1].value = '批发';
+          self.merchantInfo[2].value = '批发';
           break;
       } 
     } else {
       switch (this.list.custType) {
+        case '0':
+          self.merchantInfo[2].value = '民用';
+          break;
         case '1':
-          self.merchantInfo[1].value = '民用';
+          self.merchantInfo[2].value = '商用';
           break;
         case '2':
-          self.merchantInfo[1].value = '商用';
+          self.merchantInfo[2].value = '工业';
           break;
         case '3':
-          self.merchantInfo[1].value = '工业';
-          break;
-        case '4':
-          self.merchantInfo[1].value = '批发';
+          self.merchantInfo[2].value = '批发';
           break;
       } 
     }
 
     switch (this.list.selltype.substr(0,2)) {
         case '01':
-          self.merchantInfo[2].value = '结算客户'
+          self.merchantInfo[3].value = '结算客户'
           break;
         case '02':
-          self.merchantInfo[2].value = '月票客户'
+          self.merchantInfo[3].value = '月票客户'
           break;
         case '03':
-         self.merchantInfo[2].value = '现金客户'
+         self.merchantInfo[3].value = '现金客户'
           break;
         case '04':
-          self.merchantInfo[2].value = '其他'
+          self.merchantInfo[3].value = '其他'
           break;
       }
     //总价

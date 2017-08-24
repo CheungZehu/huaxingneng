@@ -62,10 +62,16 @@ import waitRelation from './components/tody_income/waitRelation' // 待关联
 import pay1 from './pay1.vue'
 import paysuccess from './components/placeOrder/paysuccess' //支付成功页面
 import updatePrice from './components/index/updatePrice'//修改网价（修改）
+import person from './components/Person/index'
+import data from './components/Person/data'
+import address from './components/Person/address'
+import recond from './components/Person/recond'
+import recondOrder from './components/Person/recondOrder'
 //=========end
 
-import  { ToastPlugin } from 'vux'
+import  { ToastPlugin, WechatPlugin } from 'vux'
 Vue.use(ToastPlugin)
+Vue.use(WechatPlugin)
 
 //路由 starting...
 Vue.use(VueRouter)
@@ -80,6 +86,26 @@ const routes = [{
 {
   path: '/index',
   component: index
+},
+{
+  path: '/membercenter',
+  component: person
+},
+{
+  path: '/membercenter/data',
+  component: data
+},
+{
+  path: '/membercenter/address',
+  component: address
+},
+{
+  path: '/membercenter/recond',
+  component: recond
+},
+{
+  path: '/membercenter/recond/recondOrder',
+  component: recondOrder
 },
 {
   path: '/placeOrder',

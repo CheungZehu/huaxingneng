@@ -2,7 +2,8 @@
   <div class="main">
     <p class="title">执行日期：<span>{{doTime}}</span></p>
     <div class="middleBox">
-      <ul class="list">
+    <!-- <button @click="aaa">点击</button> -->
+     <!--  <ul class="list">
         <div class="bottomBox">
           <button @click="state=='false'?create():update()">确认无误,上传</button>
           <button @click="back">修改</button>
@@ -16,9 +17,23 @@
             <p>{{n.web_name}}</p>
           </div>
         </li>
-      </ul>
+      </ul> -->
+      <group v-if="list">
+        <x-switch class="icon_box" v-for="n in list" :key="n" :title="n.web_price" :inline-desc="n.web_name" v-model="n.status" @on-change="change(n)">
+        </x-switch>
+      </group>
+<!--       <group v-if="list">
+      <x-switch class="icon_box" v-for="n in list" :key="n" :title="n.web_price" :inline-desc="n.web_name" v-model="n.status" @on-change="change(n)" disabled>
+      </x-switch>
+    </group> -->
+      <div class="bottomBox">
+        <button @click="state=='false'?create():update()">确认无误,上传</button>
+        <button @click="back">修改</button>
+        
+      </div>
     </div>
     <loading v-model="loading" text="上传中..."></loading>
+
   </div>
 </template>
 <style lang="stylus" rel="stylesheet/stylus" scoped>
@@ -50,6 +65,21 @@
   bottom:0
   overflow:auto
   background:#f2f3f8
+.vux-x-switch.weui-cell_switch
+  padding-left:50px
+.icon_box:after
+   content:"\e616"
+   font-family:"iconfont" !important;
+   font-size:23px;
+   font-style:normal;
+   color:$color
+   -webkit-font-smoothing: antialiased;
+   -moz-osx-font-smoothing: grayscale;
+   line-height:70px
+   position:absolute
+   left:10px
+
+
 .list
   position:absolute
   top:0
@@ -97,10 +127,7 @@
     border-bottom:none
 // 底部按钮
 .bottomBox
-  position:absolute
-  left:0
-  right:0
-  bottom:-85px
+  margin-top: 10px
   height:half(118)
   // background:#fff
   display:flex
@@ -130,11 +157,11 @@
 </style>
 
 <script>
-import { Search , Loading} from 'vux'
+import { Search , Loading, Group, XSwitch } from 'vux'
 import axios from 'axios'
 import qs from 'qs'
 export default {
-  components:{ Search , Loading},
+  components:{ Search , Loading, Group, XSwitch},
   data(){
     return{
       host:'/huaxinneng/',
@@ -143,12 +170,20 @@ export default {
             {name:'广东油气商会——广石化挂牌价',price:'900.00'},
             {name:'广东油气商会——广石化挂牌价',price:'900.00'}],
       state:'',
-      loading:false
+      loading:false,
+      value: false
     }
   },
   methods:{
     back(){
       this.$router.go(-1)
+    },
+    change (n) {
+      console.log(n)
+      n.auditflag = n.status ? '1' : '0' 
+    },
+    aaa () {
+      console.log(this.list)
     },
     update(){
       //显示loading
@@ -163,7 +198,7 @@ export default {
           pricedate:this.list[i].pricedate.substr(0,10),
           web_code:this.list[i].web_code,
           web_name:this.list[i].web_name,
-          web_price:this.list[i].web_price
+          web_price:this.list[i].web_price,
         }
         str += '&'+qs.stringify(data_)
       }
@@ -242,7 +277,7 @@ export default {
 
   },
   mounted(){
-    console.log(localStorage.getItem('isUpdateWebPrice')=='true')
+    // console.log(localStorage.getItem('isUpdateWebPrice')=='true')
     if(localStorage.getItem('isUpdateWebPrice')=='true'){
       this.list = JSON.parse( localStorage.getItem('update_webprice'))
       this.doTime = this.list[0].executedate.substr(0,10);      
@@ -250,14 +285,20 @@ export default {
       this.list = JSON.parse( localStorage.getItem('web_price') );
       // this.doTime = localStorage.getItem('updateTime');
       this.doTime = this.list[0].executedate.substr(0,10);
-      console.log(111)
+      // console.log(111)
     }
     
-    console.log(this.doTime )
+    // console.log(this.doTime )
 
     // console.log(localStorage.getItem('state'))
     this.state = localStorage.getItem('isUpdateWebPrice');
-  }
+    this.list.map(item => {
+      item.status = item.auditflag == '1' ? true : false
+      // item.price = '100'
+    })
+    console.log('list')
+    console.log(this.list)
+  },
 }
 
 </script>

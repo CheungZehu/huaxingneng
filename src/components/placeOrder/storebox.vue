@@ -1,8 +1,9 @@
 <template>
     <div class="main" @touchmove="preventDefault"> 
-       <!-- <p @click="isshow = true">{{title==''?'请输入门店名称':title}}</p> -->
-       <p @click="isshow = true" v-if="store == ''">请输入门店名称</p>
-       <p @click="isshow = true" v-else>{{title}}</p>
+<!--        <p @click="isshow = true">{{title==''?'请输入门店名称':title}}</p>
+       <p @click="isshow = true" v-if="store === ''">请输入门店名称</p> -->
+       <!-- <p @click="isshow = true" v-else>{{store}}</p> -->
+       <p @click="isshow = true">{{store != '' ? store : '请输入门店名称'}}</p>
        <div class="msk" v-show="isshow">
 
             <div class="inputBox">
@@ -44,12 +45,27 @@ export default {
       list:[
           ],
       value:'',
-      title:'',
+      title: this.store,
+      // title: this.store ? this.store : '请输入门店名称',
       showloading:false,
     };
   },
-  created () {
-    this.title = this.store == undefined ? '请输入门店名称' : this.store
+  mounted () {
+    // this.title = this.store
+    // this.store = this.store != '' ? this.store : '请输入门店名称'
+  },
+  computed: {
+    // title () {
+    //   // return this.store == undefined ? '请输入门店名称' : this.store
+    //   return this.store
+    // }
+    // this.title = this.store == undefined ? '请输入门店名称' : this.store
+  },
+  watch: {
+    store (val) {
+      console.log('store')
+      console.log(val)
+    }
   },
   methods:{
       search(){
@@ -58,7 +74,8 @@ export default {
           let self = this;
           self.list = [];
           let list = qs.stringify({
-              name:self.value
+              name:self.value,
+              // custCode: this.custcode
           })
           axios.post(this.host + '/custOrder/deptnameList',list,{
               headers:{
@@ -70,18 +87,26 @@ export default {
           this.showloading = false;
           if(data.data.error == '0'){
              self.list = data.data.errMsg
-          }else{
+          }else if (data.data.error == '4001') {
+            this.$vux.toast.show({
+              text:'获取不到数据，请换其它词语搜索',
+              type:'text'
+            })
+          } else {
             self.list = null
           }
               
           })
       },
       submit(name){
-        //   console.log(name)
-            this.title = name.custname;
-          this.$emit('search',name);
+        // debugger
+          console.log('name')
+          console.log(name)
+          // this.title = name.deptName;
+          this.store = name.deptName;
+          this.$emit('searchStore',name);
           this.isshow = false
-          localStorage.clear()
+          // localStorage.clear()
       },
        preventDefault(event){//阻止滑动底层跟着动
       event.preventDefault()
